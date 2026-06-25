@@ -304,13 +304,90 @@ Ctrl+D / Download button
 → Browser downloads: {title}-flowchart.png
 ```
 
+### Undo / Redo
+```
+Ctrl+Z (undo) / Ctrl+Y or Ctrl+Shift+Z (redo)
+→ Monaco Editor handles undo/redo natively for all text changes
+→ Since the flowchart is derived from code, undoing code changes
+   automatically rolls back the flowchart on the next debounced parse (250ms)
+→ Exposed additionally via EditorToolbar buttons and Command Palette
+→ No custom undo stack needed — Monaco's internal history is the source of truth
+```
+
+### New Flowchart
+```
+Ctrl+N / "New" in File menu
+→ If editor has unsaved changes: confirm dialog ("Save before leaving?")
+    → Save → navigate to /editor (blank)
+    → Discard → navigate to /editor (blank)
+    → Cancel → stay on current flowchart
+→ If no unsaved changes: navigate to /editor directly
+→ New flowchart starts with the default code sample for the current language
+```
+
+### Save As (Duplicate)
+```
+Ctrl+Shift+S / "Save As" in File menu
+→ Dialog prompts for new title
+→ POST /api/flowcharts with current code + new title (creates fresh flowchart)
+→ Navigates to /editor/[new-id]
+→ Original flowchart untouched — this is a full copy with its own version chain
+```
+
+### Rename
+```
+Click flowchart title in EditorToolbar → becomes inline text input
+→ User edits title → Enter or blur to confirm
+→ PATCH /api/flowcharts/[id] with { title } only (no version created)
+→ Title updates in toolbar, dashboard card, and browser tab
+```
+
 ---
 
-## 8. Command Palette (Ctrl+K)
+## 8. Editor Toolbar — File Operations
+
+The toolbar is organized into VS Code-style sections:
+
+**File section**
+| Action | Shortcut | Behavior |
+|---|---|---|
+| New | Ctrl+N | New blank flowchart (unsaved-changes guard) |
+| Save | Ctrl+S | Save current flowchart + create version |
+| Save As | Ctrl+Shift+S | Duplicate as new flowchart |
+| Rename | Click title | Inline title edit |
+| Delete | — | Confirm dialog → delete flowchart → redirect to dashboard |
+
+**Edit section**
+| Action | Shortcut | Behavior |
+|---|---|---|
+| Undo | Ctrl+Z | Monaco native undo |
+| Redo | Ctrl+Y | Monaco native redo |
+
+**View section**
+| Action | Shortcut | Behavior |
+|---|---|---|
+| Version History | Ctrl+H | Open VersionDrawer |
+| Command Palette | Ctrl+K | Open cmdk palette |
+
+**Share / Export section**
+| Action | Shortcut | Behavior |
+|---|---|---|
+| Share / Unshare | — | Toggle is_public, copy link |
+| Download PNG | Ctrl+D | html-to-image export |
+
+---
+
+## 9. Command Palette (Ctrl+K)
 
 | Command | Action |
 |---|---|
-| Save | POST current flowchart |
+| New flowchart | Navigate /editor (unsaved-changes guard) |
+| Save | POST current flowchart + create version |
+| Save As | Duplicate as new flowchart |
+| Rename | Focus inline title input |
+| Delete flowchart | Confirm dialog → delete |
+| Undo | Monaco editor.trigger('undo') |
+| Redo | Monaco editor.trigger('redo') |
 | Download PNG | html-to-image capture |
 | Share / Unshare | Toggle is_public |
 | Copy share link | Clipboard write |
@@ -318,13 +395,12 @@ Ctrl+D / Download button
 | Language → TypeScript | Switch parser + Monaco |
 | Language → Python | Switch parser + Monaco |
 | View version history | Open VersionDrawer |
-| New flowchart | Navigate /editor |
 | Dashboard | Navigate /dashboard |
 | Logout | supabase.auth.signOut() |
 
 ---
 
-## 9. Supported Languages & Parsers
+## 10. Supported Languages & Parsers
 
 | Language | Parser | Notes |
 |---|---|---|
@@ -336,7 +412,7 @@ Parser logic lives in `lib/parser/` as pure functions with no DOM dependency —
 
 ---
 
-## 10. Deployment Checklist
+## 11. Deployment Checklist
 
 - [ ] Supabase project created, tables + RLS policies applied
 - [ ] Supabase trigger: auto-create profile on auth.users insert
