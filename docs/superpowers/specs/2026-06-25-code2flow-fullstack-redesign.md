@@ -282,15 +282,18 @@ Anyone visits /share/abc123
 → Not found or private → 404
 → ShareView: read-only Monaco + Mermaid
 → "Download PNG" available to all
-→ "Fork to my account" shown if user is logged in
+→ "Fork to my account" shown if user is logged in:
+    creates a full copy as a new private flowchart in the user's dashboard
+    (new id, new versions chain, original owner unaffected)
 ```
 
 ### Restore Version
 ```
-VersionDrawer: GET /api/flowcharts/[id]/versions (metadata only)
+VersionDrawer: GET /api/flowcharts/[id]/versions (metadata only — no code)
 → User selects version → GET ?v=12 → code loads into editor
-→ Editor shows "Unsaved changes"
-→ User saves → creates new version (old versions preserved)
+→ Editor shows "Unsaved changes" — user reviews before committing
+→ User saves → creates a NEW version (e.g. v13); no existing versions deleted
+→ Full version chain preserved; restore is non-destructive
 ```
 
 ### Download PNG
@@ -346,3 +349,4 @@ Parser logic lives in `lib/parser/` as pure functions with no DOM dependency —
 - [ ] `next.config.js` security headers verified
 - [ ] Vercel deployment connected to GitHub repo
 - [ ] Custom domain (optional)
+- [ ] Note: `thumbnail_url` column exists in schema but is unused in v1 — reserved for future enhancement
