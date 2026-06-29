@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { editor } from 'monaco-editor'
 import type { SupportedLanguage } from '@/lib/parser'
@@ -26,18 +26,23 @@ interface Props {
   onDownloadPng: () => void
   onLanguageChange: (lang: SupportedLanguage) => void
   onVersionHistory: () => void
+  renameTrigger?: number
 }
 
 export function EditorToolbar({
   flowchartId, title, language, isPublic, shareId, hasUnsavedChanges,
   editorRef,
   onSave, onSaveAs, onRename, onDelete, onToggleShare, onDownloadPng,
-  onLanguageChange, onVersionHistory,
+  onLanguageChange, onVersionHistory, renameTrigger,
 }: Props) {
   const router  = useRouter()
   const [editing, setEditing]   = useState(false)
   const [titleVal, setTitleVal] = useState(title)
   const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    if (renameTrigger) setEditing(true)
+  }, [renameTrigger])
 
   async function handleSave() {
     setSaving(true); await onSave(); setSaving(false)

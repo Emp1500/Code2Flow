@@ -7,6 +7,7 @@ import { FlowchartPanel } from '@/components/editor/FlowchartPanel'
 import { EditorLayout }   from '@/components/editor/EditorLayout'
 import { EditorToolbar }  from '@/components/editor/EditorToolbar'
 import { VersionDrawer }  from '@/components/editor/VersionDrawer'
+import { CommandPalette } from '@/components/command/CommandPalette'
 import { codeToMermaid }  from '@/lib/parser'
 import type { SupportedLanguage } from '@/lib/parser'
 import { toPng } from 'html-to-image'
@@ -26,6 +27,7 @@ export default function EditFlowchartPage() {
   const [shareId, setShareId]           = useState<string | null>(null)
   const [mermaidCode, setMermaidCode]   = useState('')
   const [showVersions, setShowVersions] = useState(false)
+  const [renameTrigger, setRenameTrigger] = useState(0)
 
   useEffect(() => {
     fetch(`/api/flowcharts/${id}`)
@@ -118,6 +120,7 @@ export default function EditFlowchartPage() {
         onDownloadPng={handleDownloadPng}
         onLanguageChange={lang => setLanguage(lang)}
         onVersionHistory={() => setShowVersions(v => !v)}
+        renameTrigger={renameTrigger}
       />
       <div className="flex-1 overflow-hidden">
         <EditorLayout
@@ -129,6 +132,18 @@ export default function EditFlowchartPage() {
         <VersionDrawer flowchartId={id} onClose={() => setShowVersions(false)}
           onRestore={c => { setCode(c); setSavedCode(c) }} />
       )}
+      <CommandPalette
+        flowchartId={id}
+        editorRef={editorRef}
+        onSave={handleSave}
+        onSaveAs={handleSaveAs}
+        onDelete={handleDelete}
+        onToggleShare={handleToggleShare}
+        onDownloadPng={handleDownloadPng}
+        onVersionHistory={() => setShowVersions(v => !v)}
+        onLanguageChange={lang => setLanguage(lang)}
+        onRenameStart={() => setRenameTrigger(n => n + 1)}
+      />
     </div>
   )
 }
