@@ -19,7 +19,7 @@ interface Props {
 }
 
 export function CommandPalette({
-  flowchartId, editorRef,
+  editorRef,
   onSave, onSaveAs, onDelete, onToggleShare,
   onDownloadPng, onVersionHistory, onLanguageChange, onRenameStart,
 }: Props) {
