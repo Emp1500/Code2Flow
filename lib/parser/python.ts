@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
 
 // ── Tokenizer ────────────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as acorn from 'acorn'
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
 
@@ -136,7 +137,10 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
 
   if (r.entry) {
     ctx.graph.connect(cond, r.entry, 'Yes')
-    if (r.exit) { update ? (ctx.graph.connect(r.exit, update), ctx.graph.connect(update, cond)) : ctx.graph.connect(r.exit, cond) }
+    if (r.exit) {
+      if (update) { ctx.graph.connect(r.exit, update); ctx.graph.connect(update, cond) }
+      else ctx.graph.connect(r.exit, cond)
+    }
   } else if (update) { ctx.graph.connect(cond, update, 'Yes'); ctx.graph.connect(update, cond) }
   ctx.graph.connect(cond, after, 'No')
 

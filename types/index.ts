@@ -33,17 +33,24 @@ export type Database = {
         Row: Profile
         Insert: Omit<Profile, 'created_at'>
         Update: Partial<Omit<Profile, 'id'>>
+        Relationships: []
       }
       flowcharts: {
         Row: Flowchart
         Insert: Omit<Flowchart, 'id' | 'created_at' | 'updated_at'> & { id?: string }
         Update: Partial<Omit<Flowchart, 'id' | 'user_id' | 'created_at'>>
+        Relationships: []
       }
       flowchart_versions: {
         Row: FlowchartVersion
         Insert: Omit<FlowchartVersion, 'id' | 'created_at'> & { id?: string }
-        Update: never
+        Update: Partial<Omit<FlowchartVersion, 'id' | 'created_at'>>
+        Relationships: []
       }
     }
+    Views: Record<string, never>
+    Functions: Record<string, never>
+    Enums: Record<string, never>
+    CompositeTypes: Record<string, never>
   }
 }
