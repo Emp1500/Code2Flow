@@ -34,6 +34,7 @@ RETURNS TRIGGER AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS flowcharts_updated_at ON flowcharts;
 CREATE TRIGGER flowcharts_updated_at
   BEFORE UPDATE ON flowcharts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
@@ -42,12 +43,13 @@ CREATE TRIGGER flowcharts_updated_at
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO profiles (id, username)
+  INSERT INTO public.profiles (id, username)
   VALUES (NEW.id, COALESCE(NEW.raw_user_meta_data->>'username', split_part(NEW.email, '@', 1)));
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
@@ -56,6 +58,11 @@ CREATE TRIGGER on_auth_user_created
 ALTER TABLE profiles           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flowcharts         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flowchart_versions ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "own_profile"    ON profiles;
+DROP POLICY IF EXISTS "owners_full"    ON flowcharts;
+DROP POLICY IF EXISTS "public_read"    ON flowcharts;
+DROP POLICY IF EXISTS "owner_versions" ON flowchart_versions;
 
 CREATE POLICY "own_profile"    ON profiles          USING (auth.uid() = id);
 CREATE POLICY "owners_full"    ON flowcharts        USING (auth.uid() = user_id);

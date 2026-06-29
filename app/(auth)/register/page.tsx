@@ -26,7 +26,7 @@ export default function RegisterPage() {
       options: { data: { username } },
     })
     if (error) {
-      setError(error.message)
+      setError(error.message || 'Registration failed. Please try again.')
       setLoading(false)
     } else {
       router.push('/dashboard')

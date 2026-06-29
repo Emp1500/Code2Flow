@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { editor } from 'monaco-editor'
 import type { SupportedLanguage } from '@/lib/parser'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -75,6 +76,10 @@ export function EditorToolbar({
 
   return (
     <header className="h-12 border-b border-border bg-background flex items-center px-3 gap-2 shrink-0">
+      <Link href="/dashboard">
+        <Button variant="ghost" size="sm">← Dashboard</Button>
+      </Link>
+      <div className="w-px h-5 bg-border" />
       <Button variant="ghost" size="sm" onClick={handleNew}>New</Button>
       <Button variant="ghost" size="sm" onClick={handleSave} disabled={saving}>
         {saving ? 'Saving…' : hasUnsavedChanges ? 'Save*' : 'Save'}
