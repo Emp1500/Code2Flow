@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
+import { DottedSurface } from '@/components/ui/DottedSurface'
 
 export default async function LandingPage() {
   const supabase = createClient()
@@ -9,6 +10,7 @@ export default async function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
+      <DottedSurface />
       <Navbar user={user} />
       <main className="max-w-4xl mx-auto px-4 py-24 text-center">
         <h1 className="text-5xl font-bold tracking-tight mb-6">
