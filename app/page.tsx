@@ -54,7 +54,7 @@ export default async function LandingPage() {
           {features.map(f => (
             <div
               key={f.title}
-              className="p-6 bg-muted/40 hover:bg-muted/60 transition-colors ring-1 ring-border/50 rounded-lg"
+              className="p-6 bg-muted/40 hover:bg-muted/60 transition-colors duration-150 ring-1 ring-border/50 rounded-lg"
             >
               <f.icon className="size-4 text-muted-foreground mb-3" />
               <h3 className="font-semibold mb-2">{f.title}</h3>
