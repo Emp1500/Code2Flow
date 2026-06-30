@@ -73,7 +73,7 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
               <button
                 type="button"
                 onClick={e => { e.preventDefault(); setMenuOpen(o => !o) }}
-                className="p-1 rounded hover:bg-accent transition-colors cursor-pointer"
+                className="p-1 rounded hover:bg-accent transition-colors duration-150 cursor-pointer"
                 aria-label="More options"
               >
                 <MoreHorizontal className="size-4 text-muted-foreground" />
@@ -83,7 +83,7 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
                   <button
                     type="button"
                     onClick={e => { e.preventDefault(); router.push(`/editor/${flowchart.id}`) }}
-                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors cursor-pointer"
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent transition-colors duration-150 cursor-pointer"
                   >
                     Open
                   </button>
@@ -91,7 +91,7 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
                     type="button"
                     onClick={handleDelete}
                     disabled={deleting}
-                    className="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 transition-colors cursor-pointer disabled:opacity-50"
+                    className="w-full text-left px-3 py-1.5 text-sm text-destructive hover:bg-destructive/10 transition-colors duration-150 cursor-pointer disabled:opacity-50"
                   >
                     {deleting ? 'Deleting…' : 'Delete'}
                   </button>
