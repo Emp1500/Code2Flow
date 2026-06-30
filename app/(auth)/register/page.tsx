@@ -41,7 +41,7 @@ export default function RegisterPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <DottedSurface />
       <div className="text-center mb-8">
-        <Link href="/" className="text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity">
+        <Link href="/" className="text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity duration-150">
           Code2Flow
         </Link>
         <p className="text-sm text-muted-foreground mt-1">Turn code into flowcharts</p>
@@ -79,7 +79,7 @@ export default function RegisterPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors duration-150 cursor-pointer"
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
                 {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -99,7 +99,7 @@ export default function RegisterPage() {
         </form>
         <p className="text-sm text-center text-muted-foreground">
           Already have an account?{' '}
-          <Link href="/login" className="underline hover:text-foreground transition-colors">
+          <Link href="/login" className="underline hover:text-foreground transition-colors duration-150">
             Sign in
           </Link>
         </p>
