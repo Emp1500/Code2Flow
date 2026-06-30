@@ -1,13 +1,11 @@
 'use client';
 import { cn } from '@/lib/utils';
-import { useTheme } from 'next-themes';
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 
 type DottedSurfaceProps = Omit<React.ComponentProps<'div'>, 'ref'>;
 
 export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
-    const { theme } = useTheme();
 
     const containerRef = useRef<HTMLDivElement>(null);
     const sceneRef = useRef<{
@@ -58,11 +56,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
                     0,
                     iy * SEPARATION - (AMOUNTY * SEPARATION) / 2,
                 );
-                if (theme === 'dark') {
-                    colors.push(200, 200, 200);
-                } else {
-                    colors.push(0, 0, 0);
-                }
+                colors.push(0.78, 0.78, 0.78);
             }
         }
 
@@ -137,12 +131,12 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
                 }
             }
         };
-    }, [theme]);
+    }, []);
 
     return (
         <div
             ref={containerRef}
-            className={cn('pointer-events-none fixed inset-0 -z-10', className)}
+            className={cn('pointer-events-none fixed inset-0', className)}
             {...props}
         />
     );
