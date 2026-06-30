@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { FileCode2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { FlowchartCard } from '@/components/dashboard/FlowchartCard'
 import { Navbar } from '@/components/layout/Navbar'
@@ -25,9 +26,13 @@ export default async function DashboardPage() {
           </Link>
         </div>
         {!flowcharts?.length ? (
-          <div className="text-center py-20 text-muted-foreground">
-            <p className="mb-4">No flowcharts yet.</p>
-            <Link href="/editor"><Button>Create your first</Button></Link>
+          <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+            <FileCode2 className="size-12 text-muted-foreground/40" />
+            <h2 className="text-base font-medium">Your canvas is empty</h2>
+            <p className="text-sm text-muted-foreground">Create your first flowchart to get started.</p>
+            <Link href="/editor" className="mt-2">
+              <Button>New flowchart</Button>
+            </Link>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
