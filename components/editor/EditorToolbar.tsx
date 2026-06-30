@@ -126,7 +126,7 @@ export function EditorToolbar({
         />
       ) : (
         <button
-          className="text-sm font-medium px-2 py-1 rounded hover:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground transition-colors max-w-48 truncate cursor-pointer"
+          className="text-sm font-medium px-2 py-1 rounded hover:bg-accent hover:border-b hover:border-dashed hover:border-muted-foreground transition-colors duration-150 max-w-48 truncate cursor-pointer"
           onClick={() => setEditing(true)}
           title="Click to rename"
         >
