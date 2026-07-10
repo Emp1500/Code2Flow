@@ -47,6 +47,32 @@ export function parseJS(code: string): acorn.Program {
   }
 }
 
+// ── Helper functions ────────────────────────────────────────────────────────
+
+function processFunctionBody(label: string, endLabel: string, bodyStatements: any[], ctx: TraversalContext): BlockResult {
+  const funcNode = ctx.graph.createNode('subroutine', label, 'rounded')
+  const endNode  = ctx.graph.createNode('process', endLabel, 'rounded')
+  const fCtx = ctx.clone()
+  fCtx.currentNode = funcNode
+  fCtx.returnTarget = endNode
+  // function boundary: enclosing loop targets don't apply inside the body
+  fCtx.breakTarget = null
+  fCtx.continueTarget = null
+  const body = processBlock(bodyStatements, fCtx)
+  if (body.entry) ctx.graph.connect(funcNode, body.entry)
+  if (body.exit)  ctx.graph.connect(body.exit, endNode)
+  return { entry: funcNode, exit: endNode }
+}
+
+function isBlockFunction(n: any): boolean {
+  return !!n && (n.type === 'ArrowFunctionExpression' || n.type === 'FunctionExpression') && n.body?.type === 'BlockStatement'
+}
+
+function functionLabel(prefix: string, fn: any): string {
+  const params = fn.params.map((p: any) => formatExpression(p)).join(', ')
+  return fn.type === 'ArrowFunctionExpression' ? `${prefix} = (${params}) =>` : `${prefix} = function(${params})`
+}
+
 // ── Statement handlers ───────────────────────────────────────────────────────
 
 export function processStatement(node: any, ctx: TraversalContext): BlockResult {
@@ -90,13 +116,7 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
 function processFunction(node: any, ctx: TraversalContext): BlockResult {
   const name = node.id?.name ?? 'anonymous'
   const params = node.params.map((p: any) => formatExpression(p)).join(', ')
-  const funcNode = ctx.graph.createNode('subroutine', `function ${name}(${params})`, 'rounded')
-  const endNode  = ctx.graph.createNode('process', `end ${name}`, 'rounded')
-  const fCtx = ctx.clone(); fCtx.currentNode = funcNode; fCtx.returnTarget = endNode
-  const body = processBlock(node.body.body, fCtx)
-  if (body.entry) ctx.graph.connect(funcNode, body.entry)
-  if (body.exit)  ctx.graph.connect(body.exit, endNode)
-  return { entry: funcNode, exit: endNode }
+  return processFunctionBody(`function ${name}(${params})`, `end ${name}`, node.body.body, ctx)
 }
 
 function processIf(node: any, ctx: TraversalContext): BlockResult {
@@ -278,16 +298,42 @@ function processThrow(node: any, ctx: TraversalContext): BlockResult {
 }
 
 function processVariable(node: any, ctx: TraversalContext): BlockResult {
-  const decls = node.declarations.map((d: any) => {
+  if (!node.declarations.some((d: any) => isBlockFunction(d.init))) {
+    const decls = node.declarations.map((d: any) => {
+      const name = formatExpression(d.id)
+      return d.init ? `${name} = ${formatExpression(d.init)}` : name
+    }).join(', ')
+    const n = ctx.graph.createNode('process', `${node.kind} ${decls}`, 'rectangle')
+    return { entry: n, exit: n }
+  }
+  // At least one declarator holds a function with a block body: render each
+  // declarator separately so the function's control flow stays visible.
+  let first: FlowchartNode | null = null
+  let prev: FlowchartNode | null = null
+  for (const d of node.declarations) {
     const name = formatExpression(d.id)
-    return d.init ? `${name} = ${formatExpression(d.init)}` : name
-  }).join(', ')
-  const n = ctx.graph.createNode('process', `${node.kind} ${decls}`, 'rectangle')
-  return { entry: n, exit: n }
+    let r: BlockResult
+    if (isBlockFunction(d.init)) {
+      r = processFunctionBody(functionLabel(`${node.kind} ${name}`, d.init), `end ${name}`, d.init.body.body, ctx)
+    } else {
+      const label = d.init ? `${node.kind} ${name} = ${formatExpression(d.init)}` : `${node.kind} ${name}`
+      const n = ctx.graph.createNode('process', label, 'rectangle')
+      r = { entry: n, exit: n }
+    }
+    if (!first) first = r.entry
+    if (prev && r.entry) ctx.graph.connect(prev, r.entry)
+    prev = r.exit
+  }
+  return { entry: first, exit: prev }
 }
 
 function processExpression(node: any, ctx: TraversalContext): BlockResult {
-  const n = ctx.graph.createNode('process', formatExpression(node.expression), 'rectangle')
+  const expr = node.expression
+  if (expr.type === 'AssignmentExpression' && expr.operator === '=' && isBlockFunction(expr.right)) {
+    const target = formatExpression(expr.left)
+    return processFunctionBody(functionLabel(target, expr.right), `end ${target}`, expr.right.body.body, ctx)
+  }
+  const n = ctx.graph.createNode('process', formatExpression(expr), 'rectangle')
   return { entry: n, exit: n }
 }
 
