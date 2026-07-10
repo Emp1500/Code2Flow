@@ -15,11 +15,15 @@ export async function GET(request: Request, { params }: Params) {
   const vParam = searchParams.get('v')
 
   if (vParam) {
+    const versionNumber = Number(vParam)
+    if (!Number.isInteger(versionNumber) || versionNumber < 1) {
+      return NextResponse.json({ error: 'Invalid version number' }, { status: 400 })
+    }
     const res = await supabase
       .from('flowchart_versions')
       .select('id, code, version_number, created_at')
       .eq('flowchart_id', params.id)
-      .eq('version_number', Number(vParam))
+      .eq('version_number', versionNumber)
       .single()
     if (res.error) return NextResponse.json({ error: 'Version not found' }, { status: 404 })
     return NextResponse.json(res.data as Pick<FlowchartVersion, 'id' | 'code' | 'version_number' | 'created_at'>)
@@ -31,6 +35,9 @@ export async function GET(request: Request, { params }: Params) {
     .eq('flowchart_id', params.id)
     .order('version_number', { ascending: false })
 
-  if (res.error) return NextResponse.json({ error: res.error.message }, { status: 500 })
+  if (res.error) {
+    console.error('GET /api/flowcharts/[id]/versions failed:', res.error)
+    return NextResponse.json({ error: 'Failed to load version history' }, { status: 500 })
+  }
   return NextResponse.json(res.data as Pick<FlowchartVersion, 'id' | 'version_number' | 'created_at'>[])
 }

@@ -59,13 +59,22 @@ ALTER TABLE profiles           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flowcharts         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE flowchart_versions ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "own_profile"    ON profiles;
-DROP POLICY IF EXISTS "owners_full"    ON flowcharts;
-DROP POLICY IF EXISTS "public_read"    ON flowcharts;
-DROP POLICY IF EXISTS "owner_versions" ON flowchart_versions;
+DROP POLICY IF EXISTS "own_profile"     ON profiles;
+DROP POLICY IF EXISTS "owners_full"     ON flowcharts;
+DROP POLICY IF EXISTS "public_read"     ON flowcharts;
+DROP POLICY IF EXISTS "owner_versions"  ON flowchart_versions;
+DROP POLICY IF EXISTS "public_versions" ON flowchart_versions;
 
 CREATE POLICY "own_profile"    ON profiles          USING (auth.uid() = id);
 CREATE POLICY "owners_full"    ON flowcharts        USING (auth.uid() = user_id);
 CREATE POLICY "public_read"    ON flowcharts        FOR SELECT USING (is_public = true);
 CREATE POLICY "owner_versions" ON flowchart_versions
   USING (flowchart_id IN (SELECT id FROM flowcharts WHERE user_id = auth.uid()));
+-- Without this, /share/[shareId] and GET /api/flowcharts/[id] always return
+-- code: '' for non-owners: flowcharts.is_public grants public read on the
+-- flowchart row, but flowchart_versions (where the actual code lives) had no
+-- matching policy, so RLS silently returned zero rows to anyone but the owner.
+CREATE POLICY "public_versions" ON flowchart_versions
+  FOR SELECT USING (
+    flowchart_id IN (SELECT id FROM flowcharts WHERE is_public = true)
+  );

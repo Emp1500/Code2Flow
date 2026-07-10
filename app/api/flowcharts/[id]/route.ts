@@ -41,7 +41,8 @@ export async function PUT(request: Request, { params }: Params) {
   const { code, ...meta } = parsed.data
 
   if (Object.keys(meta).length) {
-    await supabase.from('flowcharts').update(meta).eq('id', params.id)
+    const { error: metaError } = await supabase.from('flowcharts').update(meta).eq('id', params.id)
+    if (metaError) return NextResponse.json({ error: 'Failed to update flowchart' }, { status: 500 })
   }
 
   if (code !== undefined) {
@@ -56,23 +57,28 @@ export async function PUT(request: Request, { params }: Params) {
 
     const nextVersion = (latest?.version_number ?? 0) + 1
 
-    await supabase.from('flowchart_versions').insert({
+    const { error: versionError } = await supabase.from('flowchart_versions').insert({
       flowchart_id: params.id, code, version_number: nextVersion,
     })
+    if (versionError) return NextResponse.json({ error: 'Failed to save flowchart contents' }, { status: 500 })
 
-    const { data: all } = await supabase
+    const { data: all, error: listError } = await supabase
       .from('flowchart_versions')
       .select('id, version_number')
       .eq('flowchart_id', params.id)
       .order('version_number', { ascending: true })
 
+    if (listError) return NextResponse.json({ error: 'Failed to prune old versions' }, { status: 500 })
+
     if (all && all.length > 50) {
       const toDelete = all.slice(0, all.length - 50).map(v => v.id)
-      await supabase.from('flowchart_versions').delete().in('id', toDelete)
+      const { error: deleteError } = await supabase.from('flowchart_versions').delete().in('id', toDelete)
+      if (deleteError) return NextResponse.json({ error: 'Failed to prune old versions' }, { status: 500 })
     }
   }
 
-  const { data: updated } = await supabase.from('flowcharts').select('*').eq('id', params.id).single()
+  const { data: updated, error: reloadError } = await supabase.from('flowcharts').select('*').eq('id', params.id).single()
+  if (reloadError) return NextResponse.json({ error: 'Failed to reload flowchart' }, { status: 500 })
   return NextResponse.json(updated)
 }
 
@@ -87,7 +93,10 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const { data, error } = await supabase
     .from('flowcharts').update({ title: parsed.data.title }).eq('id', params.id).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('PATCH /api/flowcharts/[id] failed:', error)
+    return NextResponse.json({ error: 'Failed to rename flowchart' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -97,6 +106,9 @@ export async function DELETE(_req: Request, { params }: Params) {
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { error } = await supabase.from('flowcharts').delete().eq('id', params.id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('DELETE /api/flowcharts/[id] failed:', error)
+    return NextResponse.json({ error: 'Failed to delete flowchart' }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }

@@ -14,7 +14,10 @@ export async function GET() {
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('GET /api/flowcharts failed:', error)
+    return NextResponse.json({ error: 'Failed to load flowcharts' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -38,11 +41,19 @@ export async function POST(request: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('POST /api/flowcharts failed:', error)
+    return NextResponse.json({ error: 'Failed to create flowchart' }, { status: 500 })
+  }
 
-  await supabase.from('flowchart_versions').insert({
+  const { error: versionError } = await supabase.from('flowchart_versions').insert({
     flowchart_id: flowchart.id, code, version_number: 1,
   })
+
+  if (versionError) {
+    await supabase.from('flowcharts').delete().eq('id', flowchart.id)
+    return NextResponse.json({ error: 'Failed to save flowchart contents' }, { status: 500 })
+  }
 
   return NextResponse.json(flowchart, { status: 201 })
 }

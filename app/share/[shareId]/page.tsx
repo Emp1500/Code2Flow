@@ -7,7 +7,7 @@ export default async function SharePage({ params }: { params: { shareId: string 
 
   const { data: fc } = await supabase
     .from('flowcharts')
-    .select('id, title, language, share_id, user_id')
+    .select('id, title, language, share_id')
     .eq('share_id', params.shareId)
     .eq('is_public', true)
     .single()

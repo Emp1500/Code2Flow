@@ -8,6 +8,7 @@ export function codeToMermaid(code: string, language: SupportedLanguage): string
   const graph = language === 'python' ? convertPython(code)
               : language === 'typescript' ? convertTS(code)
               : convertJS(code)
+  graph.pruneOrphanJunctions()
   return graphToMermaid(graph)
 }
 

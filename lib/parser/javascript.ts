@@ -69,6 +69,17 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
     case 'VariableDeclaration': return processVariable(node, ctx)
     case 'ExpressionStatement': return processExpression(node, ctx)
     case 'EmptyStatement':      return { entry: null, exit: ctx.currentNode }
+    // TypeScript: unwrap exports so the exported declaration still renders
+    case 'ExportNamedDeclaration':
+    case 'ExportDefaultDeclaration':
+      return node.declaration ? processStatement(node.declaration, ctx) : { entry: null, exit: ctx.currentNode }
+    // TypeScript: type-only declarations have no runtime control flow
+    case 'TSInterfaceDeclaration':
+    case 'TSTypeAliasDeclaration':
+    case 'TSDeclareFunction':
+    case 'TSModuleDeclaration':
+    case 'ImportDeclaration':
+      return { entry: null, exit: ctx.currentNode }
     default: {
       const n = ctx.graph.createNode('process', node.type.replace('Statement', ''), 'rectangle')
       return { entry: n, exit: n }
