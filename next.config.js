@@ -16,7 +16,7 @@ const nextConfig = {
             "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: blob:",
-            "font-src 'self'",
+            "font-src 'self' data:",
             "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.upstash.io",
             "worker-src blob:",
           ].join('; '),

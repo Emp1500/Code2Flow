@@ -1,7 +1,12 @@
 'use client'
-import MonacoEditor from '@monaco-editor/react'
+import MonacoEditor, { loader } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import type { SupportedLanguage } from '@/lib/parser'
+
+// Self-host Monaco assets (see scripts/copy-monaco-assets.js) instead of the
+// @monaco-editor/react default of fetching from cdn.jsdelivr.net, which the
+// app's CSP (script-src 'self') blocks.
+loader.config({ paths: { vs: '/monaco/min/vs' } })
 
 interface Props {
   value: string
