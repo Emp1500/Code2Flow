@@ -61,3 +61,27 @@ describe('fix 3: switch no-match edge', () => {
     expect(out).not.toContain('no match')
   })
 })
+
+describe('fix 4: labeled statements', () => {
+  test('labeled loop renders and break outer exits the outer loop', () => {
+    const code = 'outer: for (const a of xs) {\n  for (const b of ys) {\n    if (a === b) break outer\n  }\n}\ndone()'
+    const out = codeToMermaid(code, 'javascript')
+    expect(out).not.toContain('"Labeled"')
+    expect(out).toContain('a of xs?')
+    const breakId = out.match(/(N\d+)\["break outer"\]/)?.[1]
+    const doneId  = out.match(/(N\d+)\["done\(\)"\]/)?.[1]
+    expect(breakId).toBeTruthy()
+    expect(doneId).toBeTruthy()
+    // the node break jumps to must be the outer loop's merge — the one that leads to done()
+    const outerMerge = out.match(new RegExp(`(N\\d+) --> ${doneId}\\b`))?.[1]
+    expect(out).toContain(`${breakId} --> ${outerMerge}`)
+  })
+
+  test('labeled continue targets the labeled loop condition', () => {
+    const code = 'outer: while (a) {\n  while (b) {\n    continue outer\n  }\n}'
+    const out = codeToMermaid(code, 'javascript')
+    const contId = out.match(/(N\d+)\["continue outer"\]/)?.[1]
+    const outerCond = out.match(/(N\d+)\{"a\?"\}/)?.[1]
+    expect(out).toContain(`${contId} --> ${outerCond}`)
+  })
+})

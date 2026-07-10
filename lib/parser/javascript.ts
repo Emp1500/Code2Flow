@@ -126,6 +126,11 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
     case 'ExpressionStatement': return processExpression(node, ctx)
     case 'EmptyStatement':      return { entry: null, exit: ctx.currentNode }
     case 'ClassDeclaration':    return processClassJS(node, ctx)
+    case 'LabeledStatement': {
+      const lCtx = ctx.clone()
+      lCtx.pendingLabel = node.label.name
+      return processStatement(node.body, lCtx)
+    }
     // TypeScript: unwrap exports so the exported declaration still renders
     case 'ExportNamedDeclaration':
     case 'ExportDefaultDeclaration':
@@ -192,6 +197,7 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
   const update = node.update ? ctx.graph.createNode('process', formatExpression(node.update), 'rectangle') : null
   if (initNode) ctx.graph.connect(initNode, cond)
 
+  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: update ?? cond }; ctx.pendingLabel = null }
   const loopCtx = ctx.clone(); loopCtx.currentNode = cond
   loopCtx.breakTarget = after; loopCtx.continueTarget = update ?? cond
   const body = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
@@ -212,6 +218,7 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
 function processWhile(node: any, ctx: TraversalContext): BlockResult {
   const cond  = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
+  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body  = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r     = processBlock(body, lCtx)
@@ -225,6 +232,7 @@ function processDoWhile(node: any, ctx: TraversalContext): BlockResult {
   const bodyStart = ctx.graph.createNode('process', 'do', 'rounded')
   const cond      = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
   const after     = ctx.graph.createNode('merge' as any, '', 'circle')
+  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
   const lCtx      = ctx.clone(); lCtx.currentNode = bodyStart; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body      = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r         = processBlock(body, lCtx)
@@ -240,6 +248,7 @@ function processForIn(node: any, ctx: TraversalContext): BlockResult {
   const kw    = node.type === 'ForOfStatement' ? 'of' : 'in'
   const cond  = ctx.graph.createNode('decision', `${left} ${kw} ${formatExpression(node.right)}?`, 'diamond')
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
+  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body  = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r     = processBlock(body, lCtx)
@@ -253,6 +262,7 @@ function processSwitch(node: any, ctx: TraversalContext): BlockResult {
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
   let fallthrough: FlowchartNode | null = null
 
+  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: null }; ctx.pendingLabel = null }
   for (const c of node.cases) {
     const label    = c.test ? `case ${formatExpression(c.test)}` : 'default'
     const caseNode = ctx.graph.createNode('process', label, 'rectangle')
@@ -314,13 +324,15 @@ function processReturn(node: any, ctx: TraversalContext): BlockResult {
 
 function processBreak(node: any, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.label ? `break ${node.label.name}` : 'break', 'rectangle')
-  if (ctx.breakTarget) ctx.graph.connect(n, ctx.breakTarget)
+  const target = node.label ? ctx.labeledTargets[node.label.name]?.break ?? ctx.breakTarget : ctx.breakTarget
+  if (target) ctx.graph.connect(n, target)
   return { entry: n, exit: null }
 }
 
 function processContinue(node: any, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.label ? `continue ${node.label.name}` : 'continue', 'rectangle')
-  if (ctx.continueTarget) ctx.graph.connect(n, ctx.continueTarget)
+  const target = node.label ? ctx.labeledTargets[node.label.name]?.continue ?? ctx.continueTarget : ctx.continueTarget
+  if (target) ctx.graph.connect(n, target)
   return { entry: n, exit: null }
 }
 
