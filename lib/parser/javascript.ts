@@ -128,7 +128,7 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
     case 'ClassDeclaration':    return processClassJS(node, ctx)
     case 'LabeledStatement': {
       const lCtx = ctx.clone()
-      lCtx.pendingLabel = node.label.name
+      lCtx.pendingLabels = [...ctx.pendingLabels, node.label.name]
       return processStatement(node.body, lCtx)
     }
     // TypeScript: unwrap exports so the exported declaration still renders
@@ -197,7 +197,8 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
   const update = node.update ? ctx.graph.createNode('process', formatExpression(node.update), 'rectangle') : null
   if (initNode) ctx.graph.connect(initNode, cond)
 
-  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: update ?? cond }; ctx.pendingLabel = null }
+  for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: update ?? cond }
+  ctx.pendingLabels = []
   const loopCtx = ctx.clone(); loopCtx.currentNode = cond
   loopCtx.breakTarget = after; loopCtx.continueTarget = update ?? cond
   const body = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
@@ -218,7 +219,8 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
 function processWhile(node: any, ctx: TraversalContext): BlockResult {
   const cond  = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
-  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
+  for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
+  ctx.pendingLabels = []
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body  = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r     = processBlock(body, lCtx)
@@ -232,7 +234,8 @@ function processDoWhile(node: any, ctx: TraversalContext): BlockResult {
   const bodyStart = ctx.graph.createNode('process', 'do', 'rounded')
   const cond      = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
   const after     = ctx.graph.createNode('merge' as any, '', 'circle')
-  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
+  for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
+  ctx.pendingLabels = []
   const lCtx      = ctx.clone(); lCtx.currentNode = bodyStart; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body      = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r         = processBlock(body, lCtx)
@@ -248,7 +251,8 @@ function processForIn(node: any, ctx: TraversalContext): BlockResult {
   const kw    = node.type === 'ForOfStatement' ? 'of' : 'in'
   const cond  = ctx.graph.createNode('decision', `${left} ${kw} ${formatExpression(node.right)}?`, 'diamond')
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
-  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: cond }; ctx.pendingLabel = null }
+  for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
+  ctx.pendingLabels = []
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const body  = node.body.type === 'BlockStatement' ? node.body.body : [node.body]
   const r     = processBlock(body, lCtx)
@@ -262,7 +266,8 @@ function processSwitch(node: any, ctx: TraversalContext): BlockResult {
   const after = ctx.graph.createNode('merge' as any, '', 'circle')
   let fallthrough: FlowchartNode | null = null
 
-  if (ctx.pendingLabel) { ctx.labeledTargets[ctx.pendingLabel] = { break: after, continue: null }; ctx.pendingLabel = null }
+  for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: null }
+  ctx.pendingLabels = []
   for (const c of node.cases) {
     const label    = c.test ? `case ${formatExpression(c.test)}` : 'default'
     const caseNode = ctx.graph.createNode('process', label, 'rectangle')

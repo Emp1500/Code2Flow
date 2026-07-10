@@ -84,4 +84,16 @@ describe('fix 4: labeled statements', () => {
     const outerCond = out.match(/(N\d+)\{"a\?"\}/)?.[1]
     expect(out).toContain(`${contId} --> ${outerCond}`)
   })
+
+  test('doubly-labeled loop resolves both labels', () => {
+    const code = 'outer: inner: for (const a of xs) {\n  if (bad(a)) break outer\n  if (odd(a)) continue inner\n}\ndone()'
+    const out = codeToMermaid(code, 'javascript')
+    const breakId = out.match(/(N\d+)\["break outer"\]/)?.[1]
+    const doneId  = out.match(/(N\d+)\["done\(\)"\]/)?.[1]
+    const merge   = out.match(new RegExp(`(N\\d+) --> ${doneId}\\b`))?.[1]
+    expect(out).toContain(`${breakId} --> ${merge}`)
+    const contId  = out.match(/(N\d+)\["continue inner"\]/)?.[1]
+    const cond    = out.match(/(N\d+)\{"const a of xs\?"\}/)?.[1]
+    expect(out).toContain(`${contId} --> ${cond}`)
+  })
 })
