@@ -9,7 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest"
+    "test": "jest",
+    "seed:demo-user": "node scripts/seed-demo-user.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -45,6 +46,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "dotenv": "^17.4.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",
     "jest": "^30.4.2",
