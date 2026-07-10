@@ -268,6 +268,7 @@ function processSwitch(node: any, ctx: TraversalContext): BlockResult {
   }
 
   if (fallthrough) ctx.graph.connect(fallthrough, after)
+  if (!node.cases.some((c: any) => !c.test)) ctx.graph.connect(sw, after, 'no match')
   return { entry: sw, exit: after }
 }
 

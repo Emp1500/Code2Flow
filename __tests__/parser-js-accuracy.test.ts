@@ -49,3 +49,15 @@ describe('fix 2: classes render members', () => {
     expect(out).toContain('(["go()"])')
   })
 })
+
+describe('fix 3: switch no-match edge', () => {
+  test('switch without default connects decision to merge', () => {
+    const out = codeToMermaid('switch (x) {\n  case 1:\n    a()\n    break\n}\ndone()', 'javascript')
+    expect(out).toContain('-->|no match|')
+  })
+
+  test('switch with default gets no extra edge', () => {
+    const out = codeToMermaid('switch (x) {\n  case 1:\n    a()\n    break\n  default:\n    d()\n}', 'javascript')
+    expect(out).not.toContain('no match')
+  })
+})
