@@ -13,11 +13,13 @@ Paste JavaScript, TypeScript, or Python — get a live, readable flowchart back.
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3ECF8E?logo=supabase)](https://supabase.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Getting Started](#getting-started) · [Features](#features) · [Architecture](#architecture) · [Contributing](CONTRIBUTING.md)
+[Live Demo](https://code2flow-one.vercel.app/) · [Getting Started](#getting-started) · [Features](#features) · [Architecture](#architecture) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
 ---
+
+> **Try it live:** [code2flow-one.vercel.app](https://code2flow-one.vercel.app/) — log in with `demo123@gmail.com` / `123456` (a shared demo account, no signup needed). Real account signup is currently unreliable due to a Supabase email-rate-limit issue we're tracking; the demo login sidesteps it entirely.
 
 > **Screenshots / demo GIF:** coming soon. If you'd like to contribute one, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -173,6 +175,7 @@ Being upfront about the current gaps, partly as an invitation to contribute:
 - The Python parser is a line-based tokenizer, not a full AST parser — it doesn't handle multi-line statements or docstrings containing code-like text correctly.
 - Test coverage is currently thin relative to the parser's complexity (see `__tests__/`).
 - Authorization currently relies entirely on Postgres RLS with no redundant application-level ownership checks — correct today, but a single point of failure if a future change ever routes a request through the (currently unused) service-role client.
+- Real account signup is unreliable: the Supabase project's default email sender caps at 2 confirmation emails/hour, which real signup traffic exhausts quickly. Fixing this needs either a paid Supabase plan (to raise the limit) or a custom SMTP provider configured in the Supabase dashboard — neither is done yet. Use the shared demo login above, or run `npm run seed:demo-user` locally to create a test account that bypasses this entirely.
 
 ## Contributing
 
