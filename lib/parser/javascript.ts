@@ -27,6 +27,7 @@ export function formatExpression(node: acorn.Node | null, maxLen = 60): string {
     case 'TemplateLiteral':    text = '`...`'; break
     case 'ArrowFunctionExpression': text = '() => {...}'; break
     case 'FunctionExpression': text = 'function() {...}'; break
+    case 'Super':              text = 'super'; break
     default: text = n.type ?? '[expr]'
   }
   return text.length > maxLen ? text.substring(0, maxLen - 3) + '...' : text
@@ -37,7 +38,7 @@ export function formatExpression(node: acorn.Node | null, maxLen = 60): string {
 export function parseJS(code: string): acorn.Program {
   try {
     return acorn.parse(code, {
-      ecmaVersion: 2020,
+      ecmaVersion: 'latest',
       sourceType: 'script',
       allowReturnOutsideFunction: true,
       allowAwaitOutsideFunction: true,
@@ -73,6 +74,35 @@ function functionLabel(prefix: string, fn: any): string {
   return fn.type === 'ArrowFunctionExpression' ? `${prefix} = (${params}) =>` : `${prefix} = function(${params})`
 }
 
+function processClassJS(node: any, ctx: TraversalContext): BlockResult {
+  const name = node.id?.name ?? 'anonymous'
+  const base = node.superClass ? ` extends ${formatExpression(node.superClass)}` : ''
+  const cls  = ctx.graph.createNode('subroutine', `class ${name}${base}`, 'rounded')
+  let prev: FlowchartNode = cls
+  for (const m of node.body.body) {
+    let r: BlockResult | null = null
+    if (m.type === 'MethodDefinition' && m.value?.body) {
+      const key = formatExpression(m.key)
+      const params = m.value.params.map((p: any) => formatExpression(p)).join(', ')
+      let label = `${key}(${params})`
+      if (m.kind === 'get') label = `get ${label}`
+      if (m.kind === 'set') label = `set ${label}`
+      if (m.static) label = `static ${label}`
+      r = processFunctionBody(label, `end ${key}`, m.value.body.body, ctx)
+    } else if (m.type === 'PropertyDefinition') {
+      const key = formatExpression(m.key)
+      if (isBlockFunction(m.value)) {
+        r = processFunctionBody(functionLabel(key, m.value), `end ${key}`, m.value.body.body, ctx)
+      } else {
+        const n = ctx.graph.createNode('process', m.value ? `${key} = ${formatExpression(m.value)}` : key, 'rectangle')
+        r = { entry: n, exit: n }
+      }
+    }
+    if (r?.entry) { ctx.graph.connect(prev, r.entry); prev = r.exit ?? prev }
+  }
+  return { entry: cls, exit: prev }
+}
+
 // ── Statement handlers ───────────────────────────────────────────────────────
 
 export function processStatement(node: any, ctx: TraversalContext): BlockResult {
@@ -95,6 +125,7 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
     case 'VariableDeclaration': return processVariable(node, ctx)
     case 'ExpressionStatement': return processExpression(node, ctx)
     case 'EmptyStatement':      return { entry: null, exit: ctx.currentNode }
+    case 'ClassDeclaration':    return processClassJS(node, ctx)
     // TypeScript: unwrap exports so the exported declaration still renders
     case 'ExportNamedDeclaration':
     case 'ExportDefaultDeclaration':
@@ -298,7 +329,7 @@ function processThrow(node: any, ctx: TraversalContext): BlockResult {
 }
 
 function processVariable(node: any, ctx: TraversalContext): BlockResult {
-  if (!node.declarations.some((d: any) => isBlockFunction(d.init))) {
+  if (!node.declarations.some((d: any) => isBlockFunction(d.init) || d.init?.type === 'ClassExpression')) {
     const decls = node.declarations.map((d: any) => {
       const name = formatExpression(d.id)
       return d.init ? `${name} = ${formatExpression(d.init)}` : name
@@ -306,14 +337,16 @@ function processVariable(node: any, ctx: TraversalContext): BlockResult {
     const n = ctx.graph.createNode('process', `${node.kind} ${decls}`, 'rectangle')
     return { entry: n, exit: n }
   }
-  // At least one declarator holds a function with a block body: render each
-  // declarator separately so the function's control flow stays visible.
+  // At least one declarator holds a function with a block body or class expression:
+  // render each declarator separately so the function's/class's control flow stays visible.
   let first: FlowchartNode | null = null
   let prev: FlowchartNode | null = null
   for (const d of node.declarations) {
     const name = formatExpression(d.id)
     let r: BlockResult
-    if (isBlockFunction(d.init)) {
+    if (d.init?.type === 'ClassExpression') {
+      r = processClassJS({ ...d.init, id: d.init.id ?? d.id }, ctx)
+    } else if (isBlockFunction(d.init)) {
       r = processFunctionBody(functionLabel(`${node.kind} ${name}`, d.init), `end ${name}`, d.init.body.body, ctx)
     } else {
       const label = d.init ? `${node.kind} ${name} = ${formatExpression(d.init)}` : `${node.kind} ${name}`

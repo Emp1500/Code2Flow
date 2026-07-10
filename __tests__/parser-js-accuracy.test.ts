@@ -25,3 +25,27 @@ describe('fix 1: function-valued expressions render their bodies', () => {
     expect(out).toContain('(["const check = (x) =&gt;"])')
   })
 })
+
+describe('fix 2: classes render members', () => {
+  test('class with methods renders subroutine + method bodies', () => {
+    const code = 'class Stack extends Base {\n  constructor() { super(); this.items = [] }\n  pop() {\n    if (this.items.length === 0) return null\n    return this.items.pop()\n  }\n}'
+    const out = codeToMermaid(code, 'javascript')
+    expect(out).toContain('class Stack extends Base')
+    expect(out).toContain('(["constructor()"])')
+    expect(out).toContain('(["pop()"])')
+    expect(out).toContain('this.items.length === 0?')
+    expect(out).not.toContain('ClassDeclaration')
+  })
+
+  test('class field renders as a process node', () => {
+    const out = codeToMermaid('class A {\n  count = 0\n  reset() { this.count = 0 }\n}', 'javascript')
+    expect(out).toContain('["count = 0"]')
+    expect(out).toContain('(["reset()"])')
+  })
+
+  test('class expression assigned to const', () => {
+    const out = codeToMermaid('const A = class {\n  go() { run() }\n}', 'javascript')
+    expect(out).toContain('class A')
+    expect(out).toContain('(["go()"])')
+  })
+})
