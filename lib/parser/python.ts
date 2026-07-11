@@ -9,7 +9,12 @@ interface PyNode { type: string; body?: PyNode[]; [key: string]: any }
 function parseLine(line: string, lineNum: number): PyNode | null {
   let m: RegExpMatchArray | null
 
-  if ((m = line.match(/^def\s+(\w+)\s*\((.*?)\)\s*:/)))
+  if (line.startsWith('async ')) {
+    const node = parseLine(line.slice(6).trim(), lineNum)
+    if (node && (node.type === 'FunctionDef' || node.type === 'For' || node.type === 'With')) node.isAsync = true
+    return node
+  }
+  if ((m = line.match(/^def\s+(\w+)\s*\((.*?)\)\s*(?:->\s*[^:]+)?:/)))
     return { type: 'FunctionDef', name: m[1], params: m[2], body: [], line: lineNum }
   if ((m = line.match(/^class\s+(\w+)(?:\s*\((.*?)\))?\s*:/)))
     return { type: 'ClassDef', name: m[1], bases: m[2] ?? '', body: [], line: lineNum }
@@ -52,7 +57,7 @@ function getLastIf(node: PyNode): PyNode {
   return node
 }
 
-const COMPOUND = /^(if|elif|else|for|while|def|class|try|except|finally|with|match|case)\b/
+const COMPOUND = /^(?:async\s+)?(if|elif|else|for|while|def|class|try|except|finally|with|match|case)\b/
 
 export function parsePython(code: string): PyNode {
   const ast: PyNode = { type: 'Program', body: [] }
@@ -163,7 +168,7 @@ function processStatement(node: PyNode, ctx: TraversalContext): BlockResult {
 }
 
 function processFunction(node: PyNode, ctx: TraversalContext): BlockResult {
-  const fn  = ctx.graph.createNode('subroutine', `def ${node.name}(${node.params})`, 'rounded')
+  const fn  = ctx.graph.createNode('subroutine', `${node.isAsync ? 'async ' : ''}def ${node.name}(${node.params})`, 'rounded')
   const end = ctx.graph.createNode('process', `end ${node.name}`, 'rounded')
   const fCtx = ctx.clone(); fCtx.currentNode = fn; fCtx.returnTarget = end
   // function boundary: enclosing loop/try targets don't apply inside the body
@@ -296,7 +301,7 @@ function processTry(node: PyNode, ctx: TraversalContext): BlockResult {
 }
 
 function processWith(node: PyNode, ctx: TraversalContext): BlockResult {
-  const w    = ctx.graph.createNode('process', `with ${node.items}`, 'rounded')
+  const w    = ctx.graph.createNode('process', `${node.isAsync ? 'async ' : ''}with ${node.items}`, 'rounded')
   const wCtx = ctx.clone(); wCtx.currentNode = w
   const r    = processBlock(node.body ?? [], wCtx)
   if (r.entry) ctx.graph.connect(w, r.entry)

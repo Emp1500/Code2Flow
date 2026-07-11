@@ -80,3 +80,31 @@ describe('fix 9: while-else', () => {
     expect(out).toContain(`${condId} -->|No| ${cleanId}`)
   })
 })
+
+describe('fix 10: async constructs', () => {
+  test('async def renders its body with async label', () => {
+    const code = 'async def fetch(url):\n    if not url:\n        return None\n    return await get(url)'
+    const out = codeToMermaid(code, 'python')
+    expect(out).toContain('async def fetch(url)')
+    expect(out).toContain('not url?')
+    // body must nest inside the def: return routes to the function end node
+    const retId = out.match(/(N\d+)\["return None"\]/)?.[1]
+    const endId = out.match(/(N\d+)\(\["end fetch"\]\)/)?.[1]
+    expect(out).toContain(`${retId} --> ${endId}`)
+  })
+
+  test('async with and async for parse as blocks', () => {
+    const code = 'async def main():\n    async with session() as s:\n        async for item in s.stream():\n            handle(item)'
+    const out = codeToMermaid(code, 'python')
+    expect(out).toContain('async with session() as s')
+    expect(out).toContain('item in s.stream()?')
+    expect(out).toContain('handle(item)')
+  })
+
+  test('def with return annotation parses', () => {
+    const code = 'def size(x) -> int:\n    return len(x)'
+    const out = codeToMermaid(code, 'python')
+    expect(out).toContain('def size(x)')
+    expect(out).toContain('return len(x)')
+  })
+})
