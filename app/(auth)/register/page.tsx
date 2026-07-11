@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, AlertCircle, Workflow } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -40,13 +40,16 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <DottedSurface />
-      <div className="text-center mb-8">
-        <Link href="/" className="text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity duration-150">
+      <div className="relative text-center mb-8">
+        <Link href="/" className="inline-flex items-center gap-2 text-2xl font-bold tracking-tight hover:opacity-80 transition-opacity duration-150">
+          <span className="inline-flex items-center justify-center size-8 rounded-md bg-primary/15 text-primary">
+            <Workflow className="size-5" />
+          </span>
           Code2Flow
         </Link>
-        <p className="text-sm text-muted-foreground mt-1">Turn code into flowcharts</p>
+        <p className="text-sm text-muted-foreground mt-2">Turn code into flowcharts</p>
       </div>
-      <div className="w-full max-w-sm space-y-6 p-10 border border-t-2 border-t-primary/20 border-border ring-1 ring-border/40 shadow-xl rounded-lg bg-background">
+      <div className="relative w-full max-w-sm space-y-6 p-8 sm:p-10 border border-t-2 border-t-primary/40 border-border shadow-xl rounded-lg bg-card">
         <h1 className="text-xl font-semibold text-center">Create your account</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1">

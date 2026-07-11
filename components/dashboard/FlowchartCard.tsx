@@ -61,7 +61,7 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
   return (
     <Link
       href={`/editor/${flowchart.id}`}
-      className={`group block border border-t-2 ${accentClass} border-border rounded-lg bg-card shadow-sm hover:shadow-md hover:border-primary/50 transition-all duration-150`}
+      className={`group block border border-t-2 ${accentClass} border-border rounded-lg bg-card shadow-sm hover:shadow-lg hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-200 motion-reduce:transition-none motion-reduce:hover:translate-y-0`}
     >
       <div className="p-4">
         <div className="flex items-start justify-between gap-2 mb-3">
@@ -100,7 +100,7 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
             </div>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">{timeAgo(flowchart.updated_at)}</p>
+        <p className="font-mono text-xs text-muted-foreground">{timeAgo(flowchart.updated_at)}</p>
       </div>
     </Link>
   )
