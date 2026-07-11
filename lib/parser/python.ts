@@ -166,6 +166,8 @@ function processFunction(node: PyNode, ctx: TraversalContext): BlockResult {
   const fn  = ctx.graph.createNode('subroutine', `def ${node.name}(${node.params})`, 'rounded')
   const end = ctx.graph.createNode('process', `end ${node.name}`, 'rounded')
   const fCtx = ctx.clone(); fCtx.currentNode = fn; fCtx.returnTarget = end
+  // function boundary: enclosing loop/try targets don't apply inside the body
+  fCtx.breakTarget = null; fCtx.continueTarget = null; fCtx.throwTarget = null
   const r = processBlock(node.body ?? [], fCtx)
   if (r.entry) ctx.graph.connect(fn, r.entry)
   if (r.exit)  ctx.graph.connect(r.exit, end)
@@ -240,30 +242,49 @@ function processWhile(node: PyNode, ctx: TraversalContext): BlockResult {
 function processTry(node: PyNode, ctx: TraversalContext): BlockResult {
   const tryNode = ctx.graph.createNode('process', 'try', 'rounded')
   const after   = ctx.graph.createNode('merge' as any, '', 'circle')
-  const tCtx    = ctx.clone(); tCtx.currentNode = tryNode
-  const tRes    = processBlock(node.body ?? [], tCtx)
-  if (tRes.entry) ctx.graph.connect(tryNode, tRes.entry)
-  let finallyNode: FlowchartNode | null = null
 
-  if (node.finalbody?.body) {
-    finallyNode = ctx.graph.createNode('process', 'finally', 'rounded')
-    const fCtx  = ctx.clone(); fCtx.currentNode = finallyNode
-    const fRes  = processBlock(node.finalbody.body, fCtx)
+  // handler nodes are created before the try body is walked so raises can
+  // route to them
+  const handlerNodes: FlowchartNode[] = []
+  for (const h of (node.handlers ?? [])) {
+    const label = h.exceptionType ? (h.name ? `except ${h.exceptionType} as ${h.name}` : `except ${h.exceptionType}`) : 'except'
+    const catchN = ctx.graph.createNode('process', label, 'rounded')
+    ctx.graph.connect(tryNode, catchN, 'error')
+    handlerNodes.push(catchN)
+  }
+  const finallyNode: FlowchartNode | null = node.finalbody?.body
+    ? ctx.graph.createNode('process', 'finally', 'rounded')
+    : null
+
+  const tCtx = ctx.clone(); tCtx.currentNode = tryNode
+  tCtx.throwTarget = handlerNodes[0] ?? finallyNode
+  const tRes = processBlock(node.body ?? [], tCtx)
+  if (tRes.entry) ctx.graph.connect(tryNode, tRes.entry)
+
+  if (finallyNode) {
+    const fCtx = ctx.clone(); fCtx.currentNode = finallyNode
+    const fRes = processBlock(node.finalbody!.body, fCtx)
     if (fRes.entry) ctx.graph.connect(finallyNode, fRes.entry)
     ctx.graph.connect(fRes.exit ?? finallyNode, after)
   }
 
   const target = finallyNode ?? after
-  if (tRes.exit) ctx.graph.connect(tRes.exit, target)
 
-  for (const h of (node.handlers ?? [])) {
-    const label   = h.exceptionType ? (h.name ? `except ${h.exceptionType} as ${h.name}` : `except ${h.exceptionType}`) : 'except'
-    const catchN  = ctx.graph.createNode('process', label, 'rounded')
-    ctx.graph.connect(tryNode, catchN, 'error')
-    const cCtx = ctx.clone(); cCtx.currentNode = catchN
+  // try/else runs only when the try body completed without raising
+  let successExit = tRes.exit
+  if (node.elsebody && successExit) {
+    const eCtx = ctx.clone(); eCtx.currentNode = null
+    const eRes = processBlock(node.elsebody.body ?? [], eCtx)
+    if (eRes.entry) { ctx.graph.connect(successExit, eRes.entry); successExit = eRes.exit }
+  }
+  if (successExit) ctx.graph.connect(successExit, target)
+
+  for (let i = 0; i < handlerNodes.length; i++) {
+    const h = (node.handlers ?? [])[i]
+    const cCtx = ctx.clone(); cCtx.currentNode = handlerNodes[i]
     const cRes = processBlock(h.body ?? [], cCtx)
-    if (cRes.entry) ctx.graph.connect(catchN, cRes.entry)
-    ctx.graph.connect(cRes.exit ?? catchN, target)
+    if (cRes.entry) ctx.graph.connect(handlerNodes[i], cRes.entry)
+    ctx.graph.connect(cRes.exit ?? handlerNodes[i], target)
   }
 
   return { entry: tryNode, exit: after }
@@ -310,6 +331,7 @@ function processContinue(node: PyNode, ctx: TraversalContext): BlockResult {
 }
 function processRaise(node: PyNode, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.exception ? `raise ${node.exception}` : 'raise', 'rectangle')
+  if (ctx.throwTarget) ctx.graph.connect(n, ctx.throwTarget)
   return { entry: n, exit: null }
 }
 function processGeneric(node: PyNode, ctx: TraversalContext): BlockResult {
