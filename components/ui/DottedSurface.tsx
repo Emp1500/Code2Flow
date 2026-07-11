@@ -67,7 +67,7 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
             size: 8,
             vertexColors: true,
             transparent: true,
-            opacity: 0.8,
+            opacity: 0.45,
             sizeAttenuation: true,
         });
 
@@ -105,7 +105,12 @@ export function DottedSurface({ className, ...props }: DottedSurfaceProps) {
         };
 
         window.addEventListener('resize', handleResize);
-        animate();
+        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reducedMotion) {
+            renderer.render(scene, camera);
+        } else {
+            animate();
+        }
 
         sceneRef.current = { scene, camera, renderer, particles: [points], animationId, count };
 
