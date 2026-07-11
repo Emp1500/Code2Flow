@@ -235,7 +235,12 @@ function processWhile(node: PyNode, ctx: TraversalContext): BlockResult {
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const r     = processBlock(node.body ?? [], lCtx)
   if (r.entry) { ctx.graph.connect(cond, r.entry, 'Yes'); if (r.exit) ctx.graph.connect(r.exit, cond) }
-  ctx.graph.connect(cond, after, 'No')
+  if (node.orelse?.body?.length) {
+    const eCtx = ctx.clone(); eCtx.currentNode = null
+    const eRes = processBlock(node.orelse.body, eCtx)
+    if (eRes.entry) { ctx.graph.connect(cond, eRes.entry, 'No'); if (eRes.exit) ctx.graph.connect(eRes.exit, after) }
+    else ctx.graph.connect(cond, after, 'No')
+  } else ctx.graph.connect(cond, after, 'No')
   return { entry: cond, exit: after }
 }
 

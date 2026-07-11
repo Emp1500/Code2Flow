@@ -69,3 +69,14 @@ describe('fix 5 (python): raise routes to except', () => {
     expect(out).not.toMatch(new RegExp(`${raiseId} --> `))
   })
 })
+
+describe('fix 9: while-else', () => {
+  test('else body renders on the No path', () => {
+    const code = 'while cond():\n    work()\nelse:\n    cleanup()\nprint("done")'
+    const out = codeToMermaid(code, 'python')
+    const condId = out.match(/(N\d+)\{"cond\(\)\?"\}/)?.[1]
+    const cleanId = out.match(/(N\d+)\["cleanup\(\)"\]/)?.[1]
+    expect(cleanId).toBeTruthy()
+    expect(out).toContain(`${condId} -->|No| ${cleanId}`)
+  })
+})
