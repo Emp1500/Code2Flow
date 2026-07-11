@@ -1,15 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
+import { toLogicalLines } from './python-lines'
 
 // ── Tokenizer ────────────────────────────────────────────────────────────────
 
 interface PyNode { type: string; body?: PyNode[]; [key: string]: any }
-
-function getIndent(line: string): number {
-  let n = 0
-  for (const c of line) { if (c === ' ') n++; else if (c === '\t') n += 4; else break }
-  return n
-}
 
 function parseLine(line: string, lineNum: number): PyNode | null {
   let m: RegExpMatchArray | null
@@ -58,19 +53,16 @@ function getLastIf(node: PyNode): PyNode {
 }
 
 export function parsePython(code: string): PyNode {
-  const lines = code.split('\n')
   const ast: PyNode = { type: 'Program', body: [] }
   const stack: Array<{ indent: number; node: PyNode; type: string }> = [{ indent: -1, node: ast, type: 'program' }]
 
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i]
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const indent = getIndent(raw)
+  for (const ll of toLogicalLines(code)) {
+    const trimmed = ll.text
+    const indent = ll.indent
 
     while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop()
     const parent = stack[stack.length - 1]
-    const node   = parseLine(trimmed, i + 1)
+    const node   = parseLine(trimmed, ll.lineNum)
     if (!node) continue
 
     // Attach elif/else to previous if
