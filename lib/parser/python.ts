@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
-import { toLogicalLines } from './python-lines'
+import { toLogicalLines, topLevelIndexOf, splitTopLevel } from './python-lines'
 
 // ── Tokenizer ────────────────────────────────────────────────────────────────
 
@@ -52,6 +52,8 @@ function getLastIf(node: PyNode): PyNode {
   return node
 }
 
+const COMPOUND = /^(if|elif|else|for|while|def|class|try|except|finally|with|match|case)\b/
+
 export function parsePython(code: string): PyNode {
   const ast: PyNode = { type: 'Program', body: [] }
   const stack: Array<{ indent: number; node: PyNode; type: string }> = [{ indent: -1, node: ast, type: 'program' }]
@@ -62,28 +64,50 @@ export function parsePython(code: string): PyNode {
 
     while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop()
     const parent = stack[stack.length - 1]
-    const node   = parseLine(trimmed, ll.lineNum)
+
+    let node: PyNode | null
+    let isBlock = false
+    if (COMPOUND.test(trimmed)) {
+      const ci = topLevelIndexOf(trimmed, ':')
+      if (ci !== -1 && ci < trimmed.length - 1) {
+        // inline suite: `if x: f(); g()` — parse header and remainder separately
+        node = parseLine(trimmed.slice(0, ci + 1), ll.lineNum)
+        const rest = trimmed.slice(ci + 1).trim()
+        if (node && rest) {
+          node.body = splitTopLevel(rest, ';')
+            .map(s => parseLine(s.trim(), ll.lineNum))
+            .filter((n): n is PyNode => !!n)
+        }
+      } else {
+        node = parseLine(trimmed, ll.lineNum)
+        isBlock = ci !== -1 // header with nothing after the colon opens a block
+      }
+    } else {
+      node = parseLine(trimmed, ll.lineNum)
+    }
     if (!node) continue
 
-    // Attach elif/else to previous if
+    // Attach elif/else to the LAST statement of the parent block only
     if (node.type === 'Elif' || node.type === 'Else') {
       const body = parent.node.body ?? []
-      const last = [...body].reverse().find((n: PyNode) => n.type === 'If' || n.type === 'For' || n.type === 'While')
-      if (last) {
-        if (node.type === 'Elif') {
-          const nested: PyNode = { type: 'If', test: node.test, body: [], orelse: [] }
-          const tail = getLastIf(last.type === 'If' ? last : { type: 'If', orelse: [] })
-          tail.orelse = tail.orelse ?? []
-          tail.orelse.push(nested)
-          if (trimmed.endsWith(':')) stack.push({ indent, node: nested, type: 'If' })
-        } else {
-          // else — attach to if or loop
-          if (last.type === 'For' || last.type === 'While') { last.orelse = node }
-          else { const tail = getLastIf(last); tail._elseNode = node }
-          if (trimmed.endsWith(':')) stack.push({ indent, node, type: 'Else' })
-        }
+      const last = body[body.length - 1]
+      if (last && node.type === 'Elif' && last.type === 'If') {
+        const nested: PyNode = { type: 'If', test: node.test, body: node.body ?? [], orelse: [] }
+        const tail = getLastIf(last)
+        tail.orelse = tail.orelse ?? []
+        tail.orelse.push(nested)
+        if (isBlock) stack.push({ indent, node: nested, type: 'If' })
         continue
       }
+      if (last && node.type === 'Else') {
+        if (last.type === 'For' || last.type === 'While') last.orelse = node
+        else if (last.type === 'Try') last.elsebody = node
+        else if (last.type === 'If') { const tail = getLastIf(last); tail._elseNode = node }
+        else { continue } // stray else — drop
+        if (isBlock) stack.push({ indent, node, type: 'Else' })
+        continue
+      }
+      continue // stray elif/else with no preceding block — drop
     }
 
     // Attach except/finally to most recent try
@@ -93,7 +117,7 @@ export function parsePython(code: string): PyNode {
       if (tryNode) {
         if (node.type === 'ExceptHandler') tryNode.handlers.push(node)
         else tryNode.finalbody = node
-        if (trimmed.endsWith(':')) stack.push({ indent, node, type: node.type })
+        if (isBlock) stack.push({ indent, node, type: node.type })
         continue
       }
     }
@@ -104,14 +128,14 @@ export function parsePython(code: string): PyNode {
       const matchNode = [...body].reverse().find((n: PyNode) => n.type === 'Match')
       if (matchNode) {
         matchNode.cases.push(node)
-        if (trimmed.endsWith(':')) stack.push({ indent, node, type: 'Case' })
+        if (isBlock) stack.push({ indent, node, type: 'Case' })
         continue
       }
     }
 
     parent.node.body = parent.node.body ?? []
     parent.node.body.push(node)
-    if (trimmed.endsWith(':')) stack.push({ indent, node, type: node.type })
+    if (isBlock) stack.push({ indent, node, type: node.type })
   }
 
   return ast
