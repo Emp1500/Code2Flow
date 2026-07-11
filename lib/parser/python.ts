@@ -1,20 +1,20 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
+import { toLogicalLines, topLevelIndexOf, splitTopLevel } from './python-lines'
 
 // ── Tokenizer ────────────────────────────────────────────────────────────────
 
 interface PyNode { type: string; body?: PyNode[]; [key: string]: any }
 
-function getIndent(line: string): number {
-  let n = 0
-  for (const c of line) { if (c === ' ') n++; else if (c === '\t') n += 4; else break }
-  return n
-}
-
 function parseLine(line: string, lineNum: number): PyNode | null {
   let m: RegExpMatchArray | null
 
-  if ((m = line.match(/^def\s+(\w+)\s*\((.*?)\)\s*:/)))
+  if (line.startsWith('async ')) {
+    const node = parseLine(line.slice(6).trim(), lineNum)
+    if (node && (node.type === 'FunctionDef' || node.type === 'For' || node.type === 'With')) node.isAsync = true
+    return node
+  }
+  if ((m = line.match(/^def\s+(\w+)\s*\((.*?)\)\s*(?:->\s*[^:]+)?:/)))
     return { type: 'FunctionDef', name: m[1], params: m[2], body: [], line: lineNum }
   if ((m = line.match(/^class\s+(\w+)(?:\s*\((.*?)\))?\s*:/)))
     return { type: 'ClassDef', name: m[1], bases: m[2] ?? '', body: [], line: lineNum }
@@ -57,41 +57,62 @@ function getLastIf(node: PyNode): PyNode {
   return node
 }
 
+const COMPOUND = /^(?:async\s+)?(if|elif|else|for|while|def|class|try|except|finally|with|match|case)\b/
+
 export function parsePython(code: string): PyNode {
-  const lines = code.split('\n')
   const ast: PyNode = { type: 'Program', body: [] }
   const stack: Array<{ indent: number; node: PyNode; type: string }> = [{ indent: -1, node: ast, type: 'program' }]
 
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i]
-    const trimmed = raw.trim()
-    if (!trimmed || trimmed.startsWith('#')) continue
-    const indent = getIndent(raw)
+  for (const ll of toLogicalLines(code)) {
+    const trimmed = ll.text
+    const indent = ll.indent
 
     while (stack.length > 1 && indent <= stack[stack.length - 1].indent) stack.pop()
     const parent = stack[stack.length - 1]
-    const node   = parseLine(trimmed, i + 1)
+
+    let node: PyNode | null
+    let isBlock = false
+    if (COMPOUND.test(trimmed)) {
+      const ci = topLevelIndexOf(trimmed, ':')
+      if (ci !== -1 && ci < trimmed.length - 1) {
+        // inline suite: `if x: f(); g()` — parse header and remainder separately
+        node = parseLine(trimmed.slice(0, ci + 1), ll.lineNum)
+        const rest = trimmed.slice(ci + 1).trim()
+        if (node && rest) {
+          node.body = splitTopLevel(rest, ';')
+            .map(s => parseLine(s.trim(), ll.lineNum))
+            .filter((n): n is PyNode => !!n)
+        }
+      } else {
+        node = parseLine(trimmed, ll.lineNum)
+        isBlock = ci !== -1 // header with nothing after the colon opens a block
+      }
+    } else {
+      node = parseLine(trimmed, ll.lineNum)
+    }
     if (!node) continue
 
-    // Attach elif/else to previous if
+    // Attach elif/else to the LAST statement of the parent block only
     if (node.type === 'Elif' || node.type === 'Else') {
       const body = parent.node.body ?? []
-      const last = [...body].reverse().find((n: PyNode) => n.type === 'If' || n.type === 'For' || n.type === 'While')
-      if (last) {
-        if (node.type === 'Elif') {
-          const nested: PyNode = { type: 'If', test: node.test, body: [], orelse: [] }
-          const tail = getLastIf(last.type === 'If' ? last : { type: 'If', orelse: [] })
-          tail.orelse = tail.orelse ?? []
-          tail.orelse.push(nested)
-          if (trimmed.endsWith(':')) stack.push({ indent, node: nested, type: 'If' })
-        } else {
-          // else — attach to if or loop
-          if (last.type === 'For' || last.type === 'While') { last.orelse = node }
-          else { const tail = getLastIf(last); tail._elseNode = node }
-          if (trimmed.endsWith(':')) stack.push({ indent, node, type: 'Else' })
-        }
+      const last = body[body.length - 1]
+      if (last && node.type === 'Elif' && last.type === 'If') {
+        const nested: PyNode = { type: 'If', test: node.test, body: node.body ?? [], orelse: [] }
+        const tail = getLastIf(last)
+        tail.orelse = tail.orelse ?? []
+        tail.orelse.push(nested)
+        if (isBlock) stack.push({ indent, node: nested, type: 'If' })
         continue
       }
+      if (last && node.type === 'Else') {
+        if (last.type === 'For' || last.type === 'While') last.orelse = node
+        else if (last.type === 'Try') last.elsebody = node
+        else if (last.type === 'If') { const tail = getLastIf(last); tail._elseNode = node }
+        else { continue } // stray else — drop
+        if (isBlock) stack.push({ indent, node, type: 'Else' })
+        continue
+      }
+      continue // stray elif/else with no preceding block — drop
     }
 
     // Attach except/finally to most recent try
@@ -101,7 +122,7 @@ export function parsePython(code: string): PyNode {
       if (tryNode) {
         if (node.type === 'ExceptHandler') tryNode.handlers.push(node)
         else tryNode.finalbody = node
-        if (trimmed.endsWith(':')) stack.push({ indent, node, type: node.type })
+        if (isBlock) stack.push({ indent, node, type: node.type })
         continue
       }
     }
@@ -112,14 +133,14 @@ export function parsePython(code: string): PyNode {
       const matchNode = [...body].reverse().find((n: PyNode) => n.type === 'Match')
       if (matchNode) {
         matchNode.cases.push(node)
-        if (trimmed.endsWith(':')) stack.push({ indent, node, type: 'Case' })
+        if (isBlock) stack.push({ indent, node, type: 'Case' })
         continue
       }
     }
 
     parent.node.body = parent.node.body ?? []
     parent.node.body.push(node)
-    if (trimmed.endsWith(':')) stack.push({ indent, node, type: node.type })
+    if (isBlock) stack.push({ indent, node, type: node.type })
   }
 
   return ast
@@ -147,9 +168,11 @@ function processStatement(node: PyNode, ctx: TraversalContext): BlockResult {
 }
 
 function processFunction(node: PyNode, ctx: TraversalContext): BlockResult {
-  const fn  = ctx.graph.createNode('subroutine', `def ${node.name}(${node.params})`, 'rounded')
+  const fn  = ctx.graph.createNode('subroutine', `${node.isAsync ? 'async ' : ''}def ${node.name}(${node.params})`, 'rounded')
   const end = ctx.graph.createNode('process', `end ${node.name}`, 'rounded')
   const fCtx = ctx.clone(); fCtx.currentNode = fn; fCtx.returnTarget = end
+  // function boundary: enclosing loop/try targets don't apply inside the body
+  fCtx.breakTarget = null; fCtx.continueTarget = null; fCtx.throwTarget = null
   const r = processBlock(node.body ?? [], fCtx)
   if (r.entry) ctx.graph.connect(fn, r.entry)
   if (r.exit)  ctx.graph.connect(r.exit, end)
@@ -217,44 +240,68 @@ function processWhile(node: PyNode, ctx: TraversalContext): BlockResult {
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
   const r     = processBlock(node.body ?? [], lCtx)
   if (r.entry) { ctx.graph.connect(cond, r.entry, 'Yes'); if (r.exit) ctx.graph.connect(r.exit, cond) }
-  ctx.graph.connect(cond, after, 'No')
+  if (node.orelse?.body?.length) {
+    const eCtx = ctx.clone(); eCtx.currentNode = null
+    const eRes = processBlock(node.orelse.body, eCtx)
+    if (eRes.entry) { ctx.graph.connect(cond, eRes.entry, 'No'); if (eRes.exit) ctx.graph.connect(eRes.exit, after) }
+    else ctx.graph.connect(cond, after, 'No')
+  } else ctx.graph.connect(cond, after, 'No')
   return { entry: cond, exit: after }
 }
 
 function processTry(node: PyNode, ctx: TraversalContext): BlockResult {
   const tryNode = ctx.graph.createNode('process', 'try', 'rounded')
   const after   = ctx.graph.createNode('merge' as any, '', 'circle')
-  const tCtx    = ctx.clone(); tCtx.currentNode = tryNode
-  const tRes    = processBlock(node.body ?? [], tCtx)
-  if (tRes.entry) ctx.graph.connect(tryNode, tRes.entry)
-  let finallyNode: FlowchartNode | null = null
 
-  if (node.finalbody?.body) {
-    finallyNode = ctx.graph.createNode('process', 'finally', 'rounded')
-    const fCtx  = ctx.clone(); fCtx.currentNode = finallyNode
-    const fRes  = processBlock(node.finalbody.body, fCtx)
+  // handler nodes are created before the try body is walked so raises can
+  // route to them
+  const handlerNodes: FlowchartNode[] = []
+  for (const h of (node.handlers ?? [])) {
+    const label = h.exceptionType ? (h.name ? `except ${h.exceptionType} as ${h.name}` : `except ${h.exceptionType}`) : 'except'
+    const catchN = ctx.graph.createNode('process', label, 'rounded')
+    ctx.graph.connect(tryNode, catchN, 'error')
+    handlerNodes.push(catchN)
+  }
+  const finallyNode: FlowchartNode | null = node.finalbody?.body
+    ? ctx.graph.createNode('process', 'finally', 'rounded')
+    : null
+
+  const tCtx = ctx.clone(); tCtx.currentNode = tryNode
+  tCtx.throwTarget = handlerNodes[0] ?? finallyNode
+  const tRes = processBlock(node.body ?? [], tCtx)
+  if (tRes.entry) ctx.graph.connect(tryNode, tRes.entry)
+
+  if (finallyNode) {
+    const fCtx = ctx.clone(); fCtx.currentNode = finallyNode
+    const fRes = processBlock(node.finalbody!.body, fCtx)
     if (fRes.entry) ctx.graph.connect(finallyNode, fRes.entry)
     ctx.graph.connect(fRes.exit ?? finallyNode, after)
   }
 
   const target = finallyNode ?? after
-  if (tRes.exit) ctx.graph.connect(tRes.exit, target)
 
-  for (const h of (node.handlers ?? [])) {
-    const label   = h.exceptionType ? (h.name ? `except ${h.exceptionType} as ${h.name}` : `except ${h.exceptionType}`) : 'except'
-    const catchN  = ctx.graph.createNode('process', label, 'rounded')
-    ctx.graph.connect(tryNode, catchN, 'error')
-    const cCtx = ctx.clone(); cCtx.currentNode = catchN
+  // try/else runs only when the try body completed without raising
+  let successExit = tRes.exit
+  if (node.elsebody && successExit) {
+    const eCtx = ctx.clone(); eCtx.currentNode = null
+    const eRes = processBlock(node.elsebody.body ?? [], eCtx)
+    if (eRes.entry) { ctx.graph.connect(successExit, eRes.entry); successExit = eRes.exit }
+  }
+  if (successExit) ctx.graph.connect(successExit, target)
+
+  for (let i = 0; i < handlerNodes.length; i++) {
+    const h = (node.handlers ?? [])[i]
+    const cCtx = ctx.clone(); cCtx.currentNode = handlerNodes[i]
     const cRes = processBlock(h.body ?? [], cCtx)
-    if (cRes.entry) ctx.graph.connect(catchN, cRes.entry)
-    ctx.graph.connect(cRes.exit ?? catchN, target)
+    if (cRes.entry) ctx.graph.connect(handlerNodes[i], cRes.entry)
+    ctx.graph.connect(cRes.exit ?? handlerNodes[i], target)
   }
 
   return { entry: tryNode, exit: after }
 }
 
 function processWith(node: PyNode, ctx: TraversalContext): BlockResult {
-  const w    = ctx.graph.createNode('process', `with ${node.items}`, 'rounded')
+  const w    = ctx.graph.createNode('process', `${node.isAsync ? 'async ' : ''}with ${node.items}`, 'rounded')
   const wCtx = ctx.clone(); wCtx.currentNode = w
   const r    = processBlock(node.body ?? [], wCtx)
   if (r.entry) ctx.graph.connect(w, r.entry)
@@ -294,6 +341,7 @@ function processContinue(node: PyNode, ctx: TraversalContext): BlockResult {
 }
 function processRaise(node: PyNode, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.exception ? `raise ${node.exception}` : 'raise', 'rectangle')
+  if (ctx.throwTarget) ctx.graph.connect(n, ctx.throwTarget)
   return { entry: n, exit: null }
 }
 function processGeneric(node: PyNode, ctx: TraversalContext): BlockResult {
