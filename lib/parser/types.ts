@@ -60,6 +60,7 @@ export class TraversalContext {
   returnTarget: FlowchartNode | null = null
   labeledTargets: Record<string, { break: FlowchartNode | null; continue: FlowchartNode | null }> = {}
   pendingLabels: string[] = []
+  throwTarget: FlowchartNode | null = null
 
   constructor(public graph: FlowchartGraph) {}
 
@@ -71,6 +72,7 @@ export class TraversalContext {
     ctx.returnTarget = this.returnTarget
     ctx.labeledTargets = { ...this.labeledTargets }
     ctx.pendingLabels = [...this.pendingLabels]
+    ctx.throwTarget = this.throwTarget
     return ctx
   }
 }

@@ -59,6 +59,8 @@ function processFunctionBody(label: string, endLabel: string, bodyStatements: an
   // function boundary: enclosing loop targets don't apply inside the body
   fCtx.breakTarget = null
   fCtx.continueTarget = null
+  // a function's throw fires at call time, not where it's defined
+  fCtx.throwTarget = null
   const body = processBlock(bodyStatements, fCtx)
   if (body.entry) ctx.graph.connect(funcNode, body.entry)
   if (body.exit)  ctx.graph.connect(body.exit, endNode)
@@ -290,15 +292,27 @@ function processSwitch(node: any, ctx: TraversalContext): BlockResult {
 function processTry(node: any, ctx: TraversalContext): BlockResult {
   const tryNode = ctx.graph.createNode('process', 'try', 'rounded')
   const after   = ctx.graph.createNode('merge' as any, '', 'circle')
-  const tCtx    = ctx.clone(); tCtx.currentNode = tryNode
-  const tryRes  = processBlock(node.block.body, tCtx)
-  if (tryRes.entry) ctx.graph.connect(tryNode, tryRes.entry)
-  let finallyNode: FlowchartNode | null = null
 
-  if (node.finalizer) {
-    finallyNode = ctx.graph.createNode('process', 'finally', 'rounded')
-    const fCtx  = ctx.clone(); fCtx.currentNode = finallyNode
-    const fRes  = processBlock(node.finalizer.body, fCtx)
+  // catch/finally nodes are created before the try body is walked so the
+  // body's context can route throw statements to them
+  let catchNode: FlowchartNode | null = null
+  if (node.handler) {
+    const param = node.handler.param ? formatExpression(node.handler.param) : 'error'
+    catchNode = ctx.graph.createNode('process', `catch (${param})`, 'rounded')
+    ctx.graph.connect(tryNode, catchNode, 'error')
+  }
+  const finallyNode: FlowchartNode | null = node.finalizer
+    ? ctx.graph.createNode('process', 'finally', 'rounded')
+    : null
+
+  const tCtx = ctx.clone(); tCtx.currentNode = tryNode
+  tCtx.throwTarget = catchNode ?? finallyNode
+  const tryRes = processBlock(node.block.body, tCtx)
+  if (tryRes.entry) ctx.graph.connect(tryNode, tryRes.entry)
+
+  if (finallyNode) {
+    const fCtx = ctx.clone(); fCtx.currentNode = finallyNode
+    const fRes = processBlock(node.finalizer.body, fCtx)
     if (fRes.entry) ctx.graph.connect(finallyNode, fRes.entry)
     ctx.graph.connect(fRes.exit ?? finallyNode, after)
   }
@@ -306,15 +320,13 @@ function processTry(node: any, ctx: TraversalContext): BlockResult {
   const target = finallyNode ?? after
   if (tryRes.exit) ctx.graph.connect(tryRes.exit, target)
 
-  if (node.handler) {
-    const param    = node.handler.param ? formatExpression(node.handler.param) : 'error'
-    const catchNode = ctx.graph.createNode('process', `catch (${param})`, 'rounded')
-    ctx.graph.connect(tryNode, catchNode, 'error')
+  if (catchNode) {
+    // clones from the outer ctx so a throw inside catch propagates outward,
+    // not back into the same catch
     const cCtx = ctx.clone(); cCtx.currentNode = catchNode
     const cRes = processBlock(node.handler.body.body, cCtx)
     if (cRes.entry) ctx.graph.connect(catchNode, cRes.entry)
-    if (cRes.exit)  ctx.graph.connect(cRes.exit, target)
-    else ctx.graph.connect(catchNode, target)
+    ctx.graph.connect(cRes.exit ?? catchNode, target)
   }
 
   return { entry: tryNode, exit: after }
@@ -343,6 +355,7 @@ function processContinue(node: any, ctx: TraversalContext): BlockResult {
 
 function processThrow(node: any, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', `throw ${formatExpression(node.argument)}`, 'rectangle')
+  if (ctx.throwTarget) ctx.graph.connect(n, ctx.throwTarget)
   return { entry: n, exit: null }
 }
 

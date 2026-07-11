@@ -97,3 +97,21 @@ describe('fix 4: labeled statements', () => {
     expect(out).toContain(`${contId} --> ${cond}`)
   })
 })
+
+describe('fix 5: throw routes to catch', () => {
+  test('throw inside try connects to the catch node', () => {
+    const code = "try {\n  if (bad) throw new Error('x')\n  ok()\n} catch (e) {\n  handle(e)\n}"
+    const out = codeToMermaid(code, 'javascript')
+    const throwId = out.match(/(N\d+)\["throw new Error\('x'\)"\]/)?.[1]
+    const catchId = out.match(/(N\d+)\(\["catch \(e\)"\]\)/)?.[1]
+    expect(throwId).toBeTruthy()
+    expect(catchId).toBeTruthy()
+    expect(out).toContain(`${throwId} --> ${catchId}`)
+  })
+
+  test('throw with no enclosing try stays terminal', () => {
+    const out = codeToMermaid("throw new Error('boom')", 'javascript')
+    const throwId = out.match(/(N\d+)\["throw new Error\('boom'\)"\]/)?.[1]
+    expect(out).not.toMatch(new RegExp(`${throwId} --> `))
+  })
+})
