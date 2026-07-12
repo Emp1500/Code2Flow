@@ -210,8 +210,8 @@ interface Props {
   features: Feature[]
 }
 
-const GRID_CLASSES = 'grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left'
-const LIST_CLASSES = 'flex flex-col gap-4 text-left list-view'
+const GRID_CLASSES = 'mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left'
+const LIST_CLASSES = 'mt-16 sm:mt-20 flex flex-col gap-4 text-left list-view'
 const TRANSITION_DURATION_MS = 700
 const STAGGER_DELAY_MS = 80
 const CYCLE_DWELL_MS = 1800
