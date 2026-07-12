@@ -2,12 +2,13 @@ import { createClient }    from '@/lib/supabase/server'
 import type { FlowchartVersion } from '@/types'
 import { NextResponse }    from 'next/server'
 
-type Params = { params: { id: string } }
+type Params = { params: Promise<{ id: string }> }
 
 // GET /api/flowcharts/[id]/versions       → list (metadata only, no code)
 // GET /api/flowcharts/[id]/versions?v=12  → single version with code
 export async function GET(request: Request, { params }: Params) {
-  const supabase = createClient()
+  const { id } = await params
+  const supabase = await createClient()
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: Params) {
     const res = await supabase
       .from('flowchart_versions')
       .select('id, code, version_number, created_at')
-      .eq('flowchart_id', params.id)
+      .eq('flowchart_id', id)
       .eq('version_number', versionNumber)
       .single()
     if (res.error) return NextResponse.json({ error: 'Version not found' }, { status: 404 })
@@ -32,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
   const res = await supabase
     .from('flowchart_versions')
     .select('id, version_number, created_at')
-    .eq('flowchart_id', params.id)
+    .eq('flowchart_id', id)
     .order('version_number', { ascending: false })
 
   if (res.error) {

@@ -13,7 +13,7 @@
 /.next/
 /out/
 
-# generated at build/dev time by scripts/copy-monaco-assets.js
+# generated at build/dev time by scripts/copy-monaco-assets.mjs
 /public/monaco/
 
 # production

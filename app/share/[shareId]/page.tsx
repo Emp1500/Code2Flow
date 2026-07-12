@@ -2,13 +2,14 @@ import { notFound }     from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { ShareView }    from '@/components/share/ShareView'
 
-export default async function SharePage({ params }: { params: { shareId: string } }) {
-  const supabase = createClient()
+export default async function SharePage({ params }: { params: Promise<{ shareId: string }> }) {
+  const { shareId } = await params
+  const supabase = await createClient()
 
   const { data: fc } = await supabase
     .from('flowcharts')
     .select('id, title, language, share_id')
-    .eq('share_id', params.shareId)
+    .eq('share_id', shareId)
     .eq('is_public', true)
     .single()
 

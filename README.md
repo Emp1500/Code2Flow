@@ -8,7 +8,7 @@ Paste JavaScript, TypeScript, or Python — get a live, readable flowchart back.
 
 [![CI](https://github.com/Emp1500/Code2Flow/actions/workflows/ci.yml/badge.svg)](https://github.com/Emp1500/Code2Flow/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?logo=next.js)](https://nextjs.org)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript)](https://www.typescriptlang.org)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%2B%20Postgres-3ECF8E?logo=supabase)](https://supabase.com)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -52,7 +52,7 @@ lib/parser/*  ── pure functions, no DOM dependency
         ▼
 Next.js App Router (Server Components + Route Handlers)
         │
-        ├── middleware.ts ──── session refresh + route protection
+        ├── proxy.ts ──────── session refresh + route protection
         ├── app/api/**/route.ts ── Zod validation → rate limit → Supabase
         └── app/(protected)/** ── server-side auth re-check (defense in depth)
         │
@@ -79,7 +79,7 @@ The parser is deliberately isolated from the UI: it's pure TypeScript with no DO
 
 | Layer | Technology |
 |---|---|
-| Framework | [Next.js 14](https://nextjs.org) (App Router) + TypeScript (strict) |
+| Framework | [Next.js 16](https://nextjs.org) (App Router) + TypeScript (strict) |
 | Styling | Tailwind CSS + [shadcn/ui](https://ui.shadcn.com) |
 | Code editor | [Monaco Editor](https://microsoft.github.io/monaco-editor/) (`@monaco-editor/react`) |
 | Flowchart rendering | [Mermaid.js](https://mermaid.js.org) |
