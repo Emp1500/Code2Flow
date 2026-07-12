@@ -29,7 +29,7 @@
 
 - [ ] **Step 1: Install the package**
 
-Run: `cd "/mnt/c/Users/KING_/Documents/WebDev Projects/Capstone 8/code2flow" && npm install animejs@4.5.0`
+Run (from the worktree/checkout you were told to work from — do not `cd` to any other path): `npm install animejs@4.5.0`
 
 Expected: `package.json` gains `"animejs": "4.5.0"` (or `"^4.5.0"`, matching how other deps in this file are pinned — check `package.json`'s existing convention for exact-vs-caret before accepting npm's default) under `"dependencies"`, `package-lock.json` updates accordingly, exit code 0, no errors.
 
@@ -210,8 +210,8 @@ interface Props {
   features: Feature[]
 }
 
-const GRID_CLASSES = 'grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left'
-const LIST_CLASSES = 'flex flex-col gap-4 text-left list-view'
+const GRID_CLASSES = 'mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left'
+const LIST_CLASSES = 'mt-16 sm:mt-20 flex flex-col gap-4 text-left list-view'
 const TRANSITION_DURATION_MS = 700
 const STAGGER_DELAY_MS = 80
 const CYCLE_DWELL_MS = 1800
