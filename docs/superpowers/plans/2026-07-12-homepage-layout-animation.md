@@ -29,7 +29,7 @@
 
 - [ ] **Step 1: Install the package**
 
-Run: `cd "/mnt/c/Users/KING_/Documents/WebDev Projects/Capstone 8/code2flow" && npm install animejs@4.5.0`
+Run (from the worktree/checkout you were told to work from — do not `cd` to any other path): `npm install animejs@4.5.0`
 
 Expected: `package.json` gains `"animejs": "4.5.0"` (or `"^4.5.0"`, matching how other deps in this file are pinned — check `package.json`'s existing convention for exact-vs-caret before accepting npm's default) under `"dependencies"`, `package-lock.json` updates accordingly, exit code 0, no errors.
 
