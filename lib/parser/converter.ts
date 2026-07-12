@@ -3,6 +3,7 @@ import type { FlowchartGraph } from './types'
 function escapeLabel(text: string): string {
   return (text || '')
     .replace(/"/g, "'")
+    .replace(/\|/g, '/')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/&(?!lt;|gt;|amp;|quot;)/g, '&amp;')
@@ -29,7 +30,7 @@ export function graphToMermaid(graph: FlowchartGraph): string {
   }
 
   for (const edge of graph.edges) {
-    if (edge.label) out += `    ${edge.from} -->|${edge.label}| ${edge.to}\n`
+    if (edge.label) out += `    ${edge.from} -->|${escapeLabel(edge.label)}| ${edge.to}\n`
     else            out += `    ${edge.from} --> ${edge.to}\n`
   }
 

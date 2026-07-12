@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: Params) {
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: fc, error } = await supabase
-    .from('flowcharts').select('*').eq('id', id).single()
+    .from('flowcharts').select('*').eq('id', id).eq('user_id', user.id).single()
   if (error || !fc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const versionRes = await supabase

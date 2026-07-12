@@ -12,6 +12,10 @@ export async function GET(request: Request, { params }: Params) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: fc, error: fcError } = await supabase
+    .from('flowcharts').select('id').eq('id', id).eq('user_id', user.id).single()
+  if (fcError || !fc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const { searchParams } = new URL(request.url)
   const vParam = searchParams.get('v')
 

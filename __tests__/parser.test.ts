@@ -37,6 +37,17 @@ describe('JavaScript parser', () => {
     // other than Start. A dangling merge circle shows up as e.g. `N3(( ))` with an outgoing-only edge.
     expect(out).not.toMatch(/N\d+\(\( \)\)/)
   })
+
+  test('switch case label containing pipe/quote characters does not break edge syntax', () => {
+    const out = codeToMermaid('switch (x) { case "a|b\\"c": break; default: break; }', 'javascript')
+    // an edge label sits between unquoted pipes (`-->|label|`); a raw `|` or `"` inside it
+    // would either terminate the label early or otherwise corrupt the generated Mermaid syntax.
+    const edgeLabels = [...out.matchAll(/-->\|([^|]*)\|/g)].map(m => m[1])
+    expect(edgeLabels.length).toBeGreaterThan(0)
+    for (const label of edgeLabels) {
+      expect(label).not.toMatch(/["|]/)
+    }
+  })
 })
 
 describe('Python parser', () => {
