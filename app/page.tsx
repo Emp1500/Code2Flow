@@ -1,28 +1,10 @@
 import Link from 'next/link'
-import { Zap, Clock, Share2, ArrowRight, MoveDown } from 'lucide-react'
+import { ArrowRight, MoveDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
 import { DottedSurface } from '@/components/ui/DottedSurface'
 import { AnimatedFeaturesGrid } from '@/components/home/AnimatedFeaturesGrid'
-
-const features = [
-  {
-    icon: Zap,
-    title: 'Instant preview',
-    desc: 'Flowchart updates as you type with 250ms debounce.',
-  },
-  {
-    icon: Clock,
-    title: 'Version history',
-    desc: 'Every save creates a version. Restore any previous state.',
-  },
-  {
-    icon: Share2,
-    title: 'Public sharing',
-    desc: 'Toggle a link to share read-only views with anyone.',
-  },
-]
 
 const sampleCode = [
   { code: 'function checkAccess(user) {', indent: 0 },
@@ -111,7 +93,7 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        <AnimatedFeaturesGrid features={features} />
+        <AnimatedFeaturesGrid />
       </main>
       <footer className="relative border-t border-border/60 py-8 text-center">
         <p className="font-mono text-xs text-muted-foreground">

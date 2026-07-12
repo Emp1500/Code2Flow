@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { createLayout, stagger } from 'animejs'
 import type { AutoLayout } from 'animejs'
+import { Zap, Clock, Share2 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 export interface Feature {
@@ -11,9 +12,23 @@ export interface Feature {
   desc: string
 }
 
-interface Props {
-  features: Feature[]
-}
+const features: Feature[] = [
+  {
+    icon: Zap,
+    title: 'Instant preview',
+    desc: 'Flowchart updates as you type with 250ms debounce.',
+  },
+  {
+    icon: Clock,
+    title: 'Version history',
+    desc: 'Every save creates a version. Restore any previous state.',
+  },
+  {
+    icon: Share2,
+    title: 'Public sharing',
+    desc: 'Toggle a link to share read-only views with anyone.',
+  },
+]
 
 const GRID_CLASSES = 'mt-16 sm:mt-20 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 text-left'
 const LIST_CLASSES = 'mt-16 sm:mt-20 flex flex-col gap-4 text-left list-view'
@@ -21,7 +36,7 @@ const TRANSITION_DURATION_MS = 700
 const STAGGER_DELAY_MS = 80
 const CYCLE_DWELL_MS = 1800
 
-export function AnimatedFeaturesGrid({ features }: Props) {
+export function AnimatedFeaturesGrid() {
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
