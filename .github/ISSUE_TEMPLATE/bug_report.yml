@@ -1,0 +1,37 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+      placeholder: |
+        1. Went to the editor
+        2. Clicked "Share"
+        3. Expected a link to be copied, but nothing happened
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Code snippet (if parser-related)
+      description: If a flowchart rendered wrong, paste the exact code that produced it.
+      render: text
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser + OS, or Node version if running locally
+      placeholder: Chrome 138 on Windows 11
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where did this happen?
+      options:
+        - Live site (code2flow-one.vercel.app)
+        - Local development
+        - Both
+    validations:
+      required: true

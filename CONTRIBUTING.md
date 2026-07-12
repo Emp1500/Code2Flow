@@ -4,7 +4,7 @@ Thanks for considering a contribution — this project is early in its open-sour
 
 ## Code of Conduct
 
-Be respectful, be constructive, assume good faith. Disagree about code, not about people. That's the whole policy.
+Be respectful, be constructive, assume good faith. Disagree about code, not about people. The full policy is in [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) (Contributor Covenant 2.1).
 
 ## Getting Set Up
 
@@ -33,7 +33,7 @@ Be respectful, be constructive, assume good faith. Disagree about code, not abou
 - **No unnecessary comments.** Code should read clearly from naming; a comment should only exist to explain a non-obvious *why* (a workaround, an invariant, a subtle bug it's protecting against) — not to restate *what* the code does.
 - **Commit messages** follow the existing convention: `fix: ...`, `feat: ...`, `refactor: ...`, `docs: ...`, `test: ...` — imperative mood, one logical change per commit.
 - **Tests accompany behavior changes.** If you fix a bug in `lib/parser/`, add a case to `__tests__/parser.test.ts` that would have caught it. Regressions here are easy to miss because a broken flowchart still "renders" — it just renders *wrong* — so connectivity/shape assertions matter more than "it didn't throw."
-- **Security-sensitive changes** (anything touching `middleware.ts`, `app/api/**`, RLS policies in `docs/supabase-setup.sql`, or auth flows) should explain the access-control reasoning in the PR description, not just the diff.
+- **Security-sensitive changes** (anything touching `proxy.ts`, `app/api/**`, RLS policies in `docs/supabase-setup.sql`, or auth flows) should explain the access-control reasoning in the PR description, not just the diff.
 
 ## What to Work On
 

@@ -1,0 +1,34 @@
+name: Wrong flowchart
+description: The parser produced an incorrect, missing, or disconnected flowchart
+labels: ["bug", "parser"]
+body:
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      options:
+        - JavaScript
+        - TypeScript
+        - Python
+    validations:
+      required: true
+  - type: textarea
+    id: code
+    attributes:
+      label: Input code
+      description: The exact code that produces the wrong flowchart. Minimal reproductions are gold.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What the flowchart should show
+      placeholder: The `else` branch should connect back to the loop condition, but it dangles.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What it actually shows
+      description: A screenshot is ideal — drag and drop it here.

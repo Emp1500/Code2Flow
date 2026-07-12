@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question / discussion
+    url: https://github.com/Emp1500/Code2Flow/discussions
+    about: Ask questions or discuss ideas that aren't concrete bugs or feature requests yet.
+  - name: Security vulnerability
+    url: https://github.com/Emp1500/Code2Flow/security/advisories/new
+    about: Please report security issues privately — do not open a public issue.
