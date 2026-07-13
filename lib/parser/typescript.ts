@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as acorn from 'acorn'
 import * as acornTypescript from 'acorn-typescript'
 import { processBlock } from './javascript'
@@ -7,9 +6,23 @@ import { FlowchartGraph, TraversalContext } from './types'
 // Under `import * as x`, TS's CJS interop helper can clobber `.default` with
 // the whole module object when the source has no `__esModule` marker — the
 // named `tsPlugin` export is unambiguous across bundlers (webpack vs ts-jest).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- targeted CJS-interop cast, see comment above
 const tsPlugin = (acornTypescript as any).tsPlugin as typeof import('acorn-typescript').tsPlugin
 
-const TSParser = acorn.Parser.extend(tsPlugin() as any)
+// acorn-typescript's plugin factory returns a parser mixin typed against its
+// own internal `AcornParseClass` (see its middleware.d.ts), which acorn's
+// `Parser.extend` signature doesn't structurally recognize — a real type
+// mismatch between the two packages' own .d.ts files, not something this
+// module can resolve without patching either library.
+type ExtendPlugin = Parameters<typeof acorn.Parser.extend>[0]
+const TSParser = acorn.Parser.extend(tsPlugin() as unknown as ExtendPlugin)
+
+// A parse error thrown by acorn/acorn-typescript: a SyntaxError-shaped
+// object with a non-standard `loc` position attached.
+interface AcornParseError {
+  message: string
+  loc?: { line: number; column: number } | null
+}
 
 function parseTSCode(code: string): acorn.Program {
   try {
@@ -19,9 +32,10 @@ function parseTSCode(code: string): acorn.Program {
       locations: true,
       allowReturnOutsideFunction: true,
       allowAwaitOutsideFunction: true,
-    } as any) as unknown as acorn.Program
-  } catch (e: any) {
-    throw new Error(`TypeScript Parse Error at line ${e.loc?.line ?? '?'}: ${e.message}`)
+    } as acorn.Options) as unknown as acorn.Program
+  } catch (e) {
+    const err = e as AcornParseError
+    throw new Error(`TypeScript Parse Error at line ${err.loc?.line ?? '?'}: ${err.message}`)
   }
 }
 
@@ -33,7 +47,7 @@ export function convertTS(code: string): FlowchartGraph {
   ctx.currentNode = start
 
   const ast = parseTSCode(code)
-  const r   = processBlock((ast as any).body, ctx)
+  const r   = processBlock(ast.body as Parameters<typeof processBlock>[0], ctx)
 
   graph.connect(start, r.entry ?? end)
   if (r.exit) graph.connect(r.exit, end)
