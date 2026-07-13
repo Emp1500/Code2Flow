@@ -1,8 +1,19 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import mermaid from 'mermaid'
+import type MermaidType from 'mermaid'
 
-mermaid.initialize({ startOnLoad: false, theme: 'dark', flowchart: { useMaxWidth: true, curve: 'basis' } })
+// Deferred so `mermaid` isn't bundled into the initial route chunk — it's
+// only fetched once this panel actually mounts and renders a diagram.
+let mermaidPromise: Promise<typeof MermaidType> | null = null
+function loadMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import('mermaid').then(m => {
+      m.default.initialize({ startOnLoad: false, theme: 'dark', flowchart: { useMaxWidth: true, curve: 'basis' } })
+      return m.default
+    })
+  }
+  return mermaidPromise
+}
 
 interface Props {
   mermaidCode: string
@@ -16,10 +27,13 @@ export function FlowchartPanel({ mermaidCode, panelRef }: Props) {
 
   useEffect(() => {
     if (!mermaidCode) return
+    let cancelled = false
     const id = `mermaid-${Date.now()}-${idRef.current++}`
-    mermaid.render(id, mermaidCode)
-      .then(({ svg }) => { setSvg(svg); setError('') })
-      .catch(err => setError(err.message))
+    loadMermaid()
+      .then(mermaid => mermaid.render(id, mermaidCode))
+      .then(({ svg }) => { if (!cancelled) { setSvg(svg); setError('') } })
+      .catch(err => { if (!cancelled) setError(err.message) })
+    return () => { cancelled = true }
   }, [mermaidCode])
 
   return (

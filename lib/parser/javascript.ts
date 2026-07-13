@@ -1,12 +1,31 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as acorn from 'acorn'
 import { FlowchartGraph, TraversalContext, type BlockResult, type FlowchartNode } from './types'
+
+// acorn-typescript (see ./typescript.ts) parses TS-only declarations that
+// acorn's own types don't model since they're added by the plugin, not
+// acorn core. This module's traversal (shared by convertJS and convertTS)
+// only ever reads `.type` for these — they carry no runtime control flow.
+interface TSTypeOnlyNode extends acorn.Node {
+  type: 'TSInterfaceDeclaration' | 'TSTypeAliasDeclaration' | 'TSDeclareFunction' | 'TSModuleDeclaration'
+}
+
+// Any node this module's traversal may encounter: every real acorn AST
+// shape (acorn.AnyNode, acorn's own union of all node interfaces) plus the
+// TS-only declarations above.
+type AstNode = acorn.AnyNode | TSTypeOnlyNode
+
+// A parse error thrown by acorn/acorn-typescript: a SyntaxError-shaped
+// object with a non-standard `loc` position attached.
+interface AcornParseError {
+  message: string
+  loc?: { line: number; column: number } | null
+}
 
 // ── Expression formatter ────────────────────────────────────────────────────
 
 export function formatExpression(node: acorn.Node | null, maxLen = 60): string {
   if (!node) return ''
-  const n = node as any
+  const n = node as acorn.AnyNode
   let text = ''
   switch (n.type) {
     case 'Identifier':         text = n.name; break
@@ -17,12 +36,12 @@ export function formatExpression(node: acorn.Node | null, maxLen = 60): string {
     case 'UpdateExpression':   text = n.prefix ? `${n.operator}${formatExpression(n.argument)}` : `${formatExpression(n.argument)}${n.operator}`; break
     case 'AssignmentExpression': text = `${formatExpression(n.left)} ${n.operator} ${formatExpression(n.right)}`; break
     case 'MemberExpression':   text = n.computed ? `${formatExpression(n.object)}[${formatExpression(n.property)}]` : `${formatExpression(n.object)}.${formatExpression(n.property)}`; break
-    case 'CallExpression':     text = `${formatExpression(n.callee)}(${n.arguments.map((a: any) => formatExpression(a)).join(', ')})`; break
+    case 'CallExpression':     text = `${formatExpression(n.callee)}(${n.arguments.map(a => formatExpression(a)).join(', ')})`; break
     case 'ConditionalExpression': text = `${formatExpression(n.test)} ? ${formatExpression(n.consequent)} : ${formatExpression(n.alternate)}`; break
-    case 'ArrayExpression':    text = `[${n.elements.map((e: any) => formatExpression(e)).join(', ')}]`; break
+    case 'ArrayExpression':    text = `[${n.elements.map(e => formatExpression(e)).join(', ')}]`; break
     case 'ObjectExpression':   text = '{...}'; break
-    case 'NewExpression':      text = `new ${formatExpression(n.callee)}(${n.arguments.map((a: any) => formatExpression(a)).join(', ')})`; break
-    case 'SequenceExpression': text = n.expressions.map((e: any) => formatExpression(e)).join(', '); break
+    case 'NewExpression':      text = `new ${formatExpression(n.callee)}(${n.arguments.map(a => formatExpression(a)).join(', ')})`; break
+    case 'SequenceExpression': text = n.expressions.map(e => formatExpression(e)).join(', '); break
     case 'ThisExpression':     text = 'this'; break
     case 'TemplateLiteral':    text = '`...`'; break
     case 'ArrowFunctionExpression': text = '() => {...}'; break
@@ -43,14 +62,15 @@ export function parseJS(code: string): acorn.Program {
       allowReturnOutsideFunction: true,
       allowAwaitOutsideFunction: true,
     }) as acorn.Program
-  } catch (e: any) {
-    throw new Error(`JavaScript Parse Error at line ${e.loc?.line ?? '?'}: ${e.message}`)
+  } catch (e) {
+    const err = e as AcornParseError
+    throw new Error(`JavaScript Parse Error at line ${err.loc?.line ?? '?'}: ${err.message}`)
   }
 }
 
 // ── Helper functions ────────────────────────────────────────────────────────
 
-function processFunctionBody(label: string, endLabel: string, bodyStatements: any[], ctx: TraversalContext): BlockResult {
+function processFunctionBody(label: string, endLabel: string, bodyStatements: acorn.Statement[], ctx: TraversalContext): BlockResult {
   const funcNode = ctx.graph.createNode('subroutine', label, 'rounded')
   const endNode  = ctx.graph.createNode('process', endLabel, 'rounded')
   const fCtx = ctx.clone()
@@ -67,16 +87,20 @@ function processFunctionBody(label: string, endLabel: string, bodyStatements: an
   return { entry: funcNode, exit: endNode }
 }
 
-function isBlockFunction(n: any): boolean {
+// Narrows to a function expression whose body is a BlockStatement (as
+// opposed to a concise arrow body, e.g. `() => x`, which has no block to walk).
+function isBlockFunction(
+  n: acorn.Expression | null | undefined
+): n is (acorn.ArrowFunctionExpression | acorn.FunctionExpression) & { body: acorn.BlockStatement } {
   return !!n && (n.type === 'ArrowFunctionExpression' || n.type === 'FunctionExpression') && n.body?.type === 'BlockStatement'
 }
 
-function functionLabel(prefix: string, fn: any): string {
-  const params = fn.params.map((p: any) => formatExpression(p)).join(', ')
+function functionLabel(prefix: string, fn: acorn.ArrowFunctionExpression | acorn.FunctionExpression): string {
+  const params = fn.params.map(p => formatExpression(p)).join(', ')
   return fn.type === 'ArrowFunctionExpression' ? `${prefix} = (${params}) =>` : `${prefix} = function(${params})`
 }
 
-function processClassJS(node: any, ctx: TraversalContext): BlockResult {
+function processClassJS(node: acorn.ClassDeclaration | acorn.ClassExpression | acorn.AnonymousClassDeclaration, ctx: TraversalContext): BlockResult {
   const name = node.id?.name ?? 'anonymous'
   const base = node.superClass ? ` extends ${formatExpression(node.superClass)}` : ''
   const cls  = ctx.graph.createNode('subroutine', `class ${name}${base}`, 'rounded')
@@ -85,7 +109,7 @@ function processClassJS(node: any, ctx: TraversalContext): BlockResult {
     let r: BlockResult | null = null
     if (m.type === 'MethodDefinition' && m.value?.body) {
       const key = formatExpression(m.key)
-      const params = m.value.params.map((p: any) => formatExpression(p)).join(', ')
+      const params = m.value.params.map(p => formatExpression(p)).join(', ')
       let label = `${key}(${params})`
       if (m.kind === 'get') label = `get ${label}`
       if (m.kind === 'set') label = `set ${label}`
@@ -107,7 +131,7 @@ function processClassJS(node: any, ctx: TraversalContext): BlockResult {
 
 // ── Statement handlers ───────────────────────────────────────────────────────
 
-export function processStatement(node: any, ctx: TraversalContext): BlockResult {
+export function processStatement(node: AstNode | null, ctx: TraversalContext): BlockResult {
   if (!node) return { entry: null, exit: null }
   switch (node.type) {
     case 'FunctionDeclaration': return processFunction(node, ctx)
@@ -151,15 +175,15 @@ export function processStatement(node: any, ctx: TraversalContext): BlockResult 
   }
 }
 
-function processFunction(node: any, ctx: TraversalContext): BlockResult {
+function processFunction(node: acorn.FunctionDeclaration | acorn.AnonymousFunctionDeclaration, ctx: TraversalContext): BlockResult {
   const name = node.id?.name ?? 'anonymous'
-  const params = node.params.map((p: any) => formatExpression(p)).join(', ')
+  const params = node.params.map(p => formatExpression(p)).join(', ')
   return processFunctionBody(`function ${name}(${params})`, `end ${name}`, node.body.body, ctx)
 }
 
-function processIf(node: any, ctx: TraversalContext): BlockResult {
+function processIf(node: acorn.IfStatement, ctx: TraversalContext): BlockResult {
   const cond  = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
-  const merge = ctx.graph.createNode('merge' as any, '', 'circle')
+  const merge = ctx.graph.createNode('merge', '', 'circle')
 
   const trueBody = node.consequent.type === 'BlockStatement' ? node.consequent.body : [node.consequent]
   const trueCtx  = ctx.clone(); trueCtx.currentNode = cond
@@ -186,16 +210,16 @@ function processIf(node: any, ctx: TraversalContext): BlockResult {
   return { entry: cond, exit: merge }
 }
 
-function processFor(node: any, ctx: TraversalContext): BlockResult {
+function processFor(node: acorn.ForStatement, ctx: TraversalContext): BlockResult {
   let initNode: FlowchartNode | null = null
   if (node.init) {
     const label = node.init.type === 'VariableDeclaration'
-      ? node.init.declarations.map((d: any) => `${node.init.kind} ${formatExpression(d.id)} = ${formatExpression(d.init)}`).join(', ')
+      ? node.init.declarations.map(d => `${(node.init as acorn.VariableDeclaration).kind} ${formatExpression(d.id)} = ${formatExpression(d.init ?? null)}`).join(', ')
       : formatExpression(node.init)
     initNode = ctx.graph.createNode('process', label, 'rectangle')
   }
   const cond   = ctx.graph.createNode('decision', (node.test ? formatExpression(node.test) : 'true') + '?', 'diamond')
-  const after  = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after  = ctx.graph.createNode('merge', '', 'circle')
   const update = node.update ? ctx.graph.createNode('process', formatExpression(node.update), 'rectangle') : null
   if (initNode) ctx.graph.connect(initNode, cond)
 
@@ -218,9 +242,9 @@ function processFor(node: any, ctx: TraversalContext): BlockResult {
   return { entry: initNode ?? cond, exit: after }
 }
 
-function processWhile(node: any, ctx: TraversalContext): BlockResult {
+function processWhile(node: acorn.WhileStatement, ctx: TraversalContext): BlockResult {
   const cond  = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
-  const after = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after = ctx.graph.createNode('merge', '', 'circle')
   for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
   ctx.pendingLabels = []
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
@@ -232,10 +256,10 @@ function processWhile(node: any, ctx: TraversalContext): BlockResult {
   return { entry: cond, exit: after }
 }
 
-function processDoWhile(node: any, ctx: TraversalContext): BlockResult {
+function processDoWhile(node: acorn.DoWhileStatement, ctx: TraversalContext): BlockResult {
   const bodyStart = ctx.graph.createNode('process', 'do', 'rounded')
   const cond      = ctx.graph.createNode('decision', formatExpression(node.test) + '?', 'diamond')
-  const after     = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after     = ctx.graph.createNode('merge', '', 'circle')
   for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
   ctx.pendingLabels = []
   const lCtx      = ctx.clone(); lCtx.currentNode = bodyStart; lCtx.breakTarget = after; lCtx.continueTarget = cond
@@ -248,11 +272,11 @@ function processDoWhile(node: any, ctx: TraversalContext): BlockResult {
   return { entry: bodyStart, exit: after }
 }
 
-function processForIn(node: any, ctx: TraversalContext): BlockResult {
+function processForIn(node: acorn.ForInStatement | acorn.ForOfStatement, ctx: TraversalContext): BlockResult {
   const left  = node.left.type === 'VariableDeclaration' ? `${node.left.kind} ${formatExpression(node.left.declarations[0].id)}` : formatExpression(node.left)
   const kw    = node.type === 'ForOfStatement' ? 'of' : 'in'
   const cond  = ctx.graph.createNode('decision', `${left} ${kw} ${formatExpression(node.right)}?`, 'diamond')
-  const after = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after = ctx.graph.createNode('merge', '', 'circle')
   for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: cond }
   ctx.pendingLabels = []
   const lCtx  = ctx.clone(); lCtx.currentNode = cond; lCtx.breakTarget = after; lCtx.continueTarget = cond
@@ -263,9 +287,9 @@ function processForIn(node: any, ctx: TraversalContext): BlockResult {
   return { entry: cond, exit: after }
 }
 
-function processSwitch(node: any, ctx: TraversalContext): BlockResult {
+function processSwitch(node: acorn.SwitchStatement, ctx: TraversalContext): BlockResult {
   const sw    = ctx.graph.createNode('decision', `switch (${formatExpression(node.discriminant)})`, 'diamond')
-  const after = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after = ctx.graph.createNode('merge', '', 'circle')
   let fallthrough: FlowchartNode | null = null
 
   for (const l of ctx.pendingLabels) ctx.labeledTargets[l] = { break: after, continue: null }
@@ -285,13 +309,13 @@ function processSwitch(node: any, ctx: TraversalContext): BlockResult {
   }
 
   if (fallthrough) ctx.graph.connect(fallthrough, after)
-  if (!node.cases.some((c: any) => !c.test)) ctx.graph.connect(sw, after, 'no match')
+  if (!node.cases.some(c => !c.test)) ctx.graph.connect(sw, after, 'no match')
   return { entry: sw, exit: after }
 }
 
-function processTry(node: any, ctx: TraversalContext): BlockResult {
+function processTry(node: acorn.TryStatement, ctx: TraversalContext): BlockResult {
   const tryNode = ctx.graph.createNode('process', 'try', 'rounded')
-  const after   = ctx.graph.createNode('merge' as any, '', 'circle')
+  const after   = ctx.graph.createNode('merge', '', 'circle')
 
   // catch/finally nodes are created before the try body is walked so the
   // body's context can route throw statements to them
@@ -312,7 +336,7 @@ function processTry(node: any, ctx: TraversalContext): BlockResult {
 
   if (finallyNode) {
     const fCtx = ctx.clone(); fCtx.currentNode = finallyNode
-    const fRes = processBlock(node.finalizer.body, fCtx)
+    const fRes = processBlock(node.finalizer!.body, fCtx)
     if (fRes.entry) ctx.graph.connect(finallyNode, fRes.entry)
     ctx.graph.connect(fRes.exit ?? finallyNode, after)
   }
@@ -324,7 +348,7 @@ function processTry(node: any, ctx: TraversalContext): BlockResult {
     // clones from the outer ctx so a throw inside catch propagates outward,
     // not back into the same catch
     const cCtx = ctx.clone(); cCtx.currentNode = catchNode
-    const cRes = processBlock(node.handler.body.body, cCtx)
+    const cRes = processBlock(node.handler!.body.body, cCtx)
     if (cRes.entry) ctx.graph.connect(catchNode, cRes.entry)
     ctx.graph.connect(cRes.exit ?? catchNode, target)
   }
@@ -332,36 +356,36 @@ function processTry(node: any, ctx: TraversalContext): BlockResult {
   return { entry: tryNode, exit: after }
 }
 
-function processReturn(node: any, ctx: TraversalContext): BlockResult {
+function processReturn(node: acorn.ReturnStatement, ctx: TraversalContext): BlockResult {
   const label = node.argument ? `return ${formatExpression(node.argument)}` : 'return'
   const n     = ctx.graph.createNode('process', label, 'rectangle')
   if (ctx.returnTarget) ctx.graph.connect(n, ctx.returnTarget)
   return { entry: n, exit: null }
 }
 
-function processBreak(node: any, ctx: TraversalContext): BlockResult {
+function processBreak(node: acorn.BreakStatement, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.label ? `break ${node.label.name}` : 'break', 'rectangle')
   const target = node.label ? ctx.labeledTargets[node.label.name]?.break ?? ctx.breakTarget : ctx.breakTarget
   if (target) ctx.graph.connect(n, target)
   return { entry: n, exit: null }
 }
 
-function processContinue(node: any, ctx: TraversalContext): BlockResult {
+function processContinue(node: acorn.ContinueStatement, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', node.label ? `continue ${node.label.name}` : 'continue', 'rectangle')
   const target = node.label ? ctx.labeledTargets[node.label.name]?.continue ?? ctx.continueTarget : ctx.continueTarget
   if (target) ctx.graph.connect(n, target)
   return { entry: n, exit: null }
 }
 
-function processThrow(node: any, ctx: TraversalContext): BlockResult {
+function processThrow(node: acorn.ThrowStatement, ctx: TraversalContext): BlockResult {
   const n = ctx.graph.createNode('process', `throw ${formatExpression(node.argument)}`, 'rectangle')
   if (ctx.throwTarget) ctx.graph.connect(n, ctx.throwTarget)
   return { entry: n, exit: null }
 }
 
-function processVariable(node: any, ctx: TraversalContext): BlockResult {
-  if (!node.declarations.some((d: any) => isBlockFunction(d.init) || d.init?.type === 'ClassExpression')) {
-    const decls = node.declarations.map((d: any) => {
+function processVariable(node: acorn.VariableDeclaration, ctx: TraversalContext): BlockResult {
+  if (!node.declarations.some(d => isBlockFunction(d.init) || d.init?.type === 'ClassExpression')) {
+    const decls = node.declarations.map(d => {
       const name = formatExpression(d.id)
       return d.init ? `${name} = ${formatExpression(d.init)}` : name
     }).join(', ')
@@ -376,7 +400,7 @@ function processVariable(node: any, ctx: TraversalContext): BlockResult {
     const name = formatExpression(d.id)
     let r: BlockResult
     if (d.init?.type === 'ClassExpression') {
-      r = processClassJS({ ...d.init, id: d.init.id ?? d.id }, ctx)
+      r = processClassJS({ ...d.init, id: d.init.id ?? (d.id as acorn.Identifier) }, ctx)
     } else if (isBlockFunction(d.init)) {
       r = processFunctionBody(functionLabel(`${node.kind} ${name}`, d.init), `end ${name}`, d.init.body.body, ctx)
     } else {
@@ -391,7 +415,7 @@ function processVariable(node: any, ctx: TraversalContext): BlockResult {
   return { entry: first, exit: prev }
 }
 
-function processExpression(node: any, ctx: TraversalContext): BlockResult {
+function processExpression(node: acorn.ExpressionStatement, ctx: TraversalContext): BlockResult {
   const expr = node.expression
   if (expr.type === 'AssignmentExpression' && expr.operator === '=' && isBlockFunction(expr.right)) {
     const target = formatExpression(expr.left)
@@ -401,7 +425,7 @@ function processExpression(node: any, ctx: TraversalContext): BlockResult {
   return { entry: n, exit: n }
 }
 
-export function processBlock(statements: any[], ctx: TraversalContext): BlockResult {
+export function processBlock(statements: AstNode[], ctx: TraversalContext): BlockResult {
   if (!statements?.length) return { entry: null, exit: ctx.currentNode }
   let first: FlowchartNode | null = null
   let current = ctx.currentNode
@@ -430,7 +454,7 @@ export function convertJS(code: string): FlowchartGraph {
   ctx.currentNode = start
 
   const ast = parseJS(code)
-  const r   = processBlock((ast as any).body, ctx)
+  const r   = processBlock(ast.body as AstNode[], ctx)
 
   graph.connect(start, r.entry ?? end)
   if (r.exit) graph.connect(r.exit, end)

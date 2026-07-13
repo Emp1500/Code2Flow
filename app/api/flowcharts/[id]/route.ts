@@ -11,17 +11,18 @@ export async function GET(_req: Request, { params }: Params) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: fc, error } = await supabase
-    .from('flowcharts').select('*').eq('id', id).eq('user_id', user.id).single()
+  const [{ data: fc, error }, versionRes] = await Promise.all([
+    supabase.from('flowcharts').select('*').eq('id', id).eq('user_id', user.id).single(),
+    supabase
+      .from('flowchart_versions')
+      .select('code, version_number')
+      .eq('flowchart_id', id)
+      .order('version_number', { ascending: false })
+      .limit(1)
+      .single(),
+  ])
   if (error || !fc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-  const versionRes = await supabase
-    .from('flowchart_versions')
-    .select('code, version_number')
-    .eq('flowchart_id', id)
-    .order('version_number', { ascending: false })
-    .limit(1)
-    .single()
   const version = versionRes.data as { code: string; version_number: number } | null
 
   return NextResponse.json(Object.assign({}, fc, { code: version?.code ?? '', version_number: version?.version_number ?? 0 }))

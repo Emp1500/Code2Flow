@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import MonacoEditor from '@monaco-editor/react'
+import dynamic from 'next/dynamic'
 import { toPng } from 'html-to-image'
 import { codeToMermaid } from '@/lib/parser'
 import type { SupportedLanguage } from '@/lib/parser'
@@ -9,6 +9,11 @@ import { FlowchartPanel } from '@/components/editor/FlowchartPanel'
 import { EditorLayout }   from '@/components/editor/EditorLayout'
 import { Button } from '@/components/ui/button'
 import { Badge }  from '@/components/ui/badge'
+
+const MonacoEditor = dynamic(() => import('@monaco-editor/react').then(m => m.default), {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading editor…</div>,
+})
 
 interface Props {
   flowchart: { id: string; title: string; language: string; code: string; share_id: string | null }
