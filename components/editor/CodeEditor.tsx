@@ -1,5 +1,6 @@
 'use client'
-import MonacoEditor, { loader } from '@monaco-editor/react'
+import dynamic from 'next/dynamic'
+import { loader } from '@monaco-editor/react'
 import type { editor } from 'monaco-editor'
 import type { SupportedLanguage } from '@/lib/parser'
 
@@ -7,6 +8,11 @@ import type { SupportedLanguage } from '@/lib/parser'
 // @monaco-editor/react default of fetching from cdn.jsdelivr.net, which the
 // app's CSP (script-src 'self') blocks.
 loader.config({ paths: { vs: '/monaco/min/vs' } })
+
+const MonacoEditor = dynamic(() => import('@monaco-editor/react').then(m => m.default), {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Loading editor…</div>,
+})
 
 interface Props {
   value: string
