@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation'
 import { Workflow } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
+import { GithubIcon } from '@/components/icons/GithubIcon'
+
+const GITHUB_URL = 'https://github.com/Emp1500/Code2Flow'
 
 export function Navbar({ user }: { user: { email?: string } | null }) {
   const router   = useRouter()
@@ -24,7 +27,16 @@ export function Navbar({ user }: { user: { email?: string } | null }) {
           </span>
           Code2Flow
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <a
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            aria-label="View Code2Flow on GitHub"
+            className="inline-flex items-center justify-center size-8 rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors duration-150"
+          >
+            <GithubIcon className="size-4" />
+          </a>
           {user ? (
             <>
               <Link href="/dashboard">

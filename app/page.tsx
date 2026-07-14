@@ -5,6 +5,9 @@ import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
 import { DottedSurface } from '@/components/ui/DottedSurface'
 import { AnimatedFeaturesGrid } from '@/components/home/AnimatedFeaturesGrid'
+import { GithubIcon } from '@/components/icons/GithubIcon'
+
+const GITHUB_URL = 'https://github.com/Emp1500/Code2Flow'
 
 const sampleCode = [
   { code: 'function checkAccess(user) {', indent: 0 },
@@ -95,10 +98,47 @@ export default async function LandingPage() {
 
         <AnimatedFeaturesGrid />
       </main>
-      <footer className="relative border-t border-border/60 py-8 text-center">
-        <p className="font-mono text-xs text-muted-foreground">
-          Code2Flow — visualize code as flowcharts
-        </p>
+      <footer className="relative border-t border-border/60 py-8">
+        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="font-mono text-xs text-muted-foreground">
+            Code2Flow — MIT licensed, open source
+          </p>
+          <nav className="flex items-center gap-5 text-xs text-muted-foreground">
+            <a
+              href={GITHUB_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors duration-150"
+            >
+              <GithubIcon className="size-3.5" />
+              GitHub
+            </a>
+            <a
+              href={`${GITHUB_URL}/blob/main/LICENSE`}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground transition-colors duration-150"
+            >
+              License
+            </a>
+            <a
+              href={`${GITHUB_URL}/blob/main/CONTRIBUTING.md`}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground transition-colors duration-150"
+            >
+              Contributing
+            </a>
+            <a
+              href={`${GITHUB_URL}/issues`}
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground transition-colors duration-150"
+            >
+              Issues
+            </a>
+          </nav>
+        </div>
       </footer>
     </div>
   )
