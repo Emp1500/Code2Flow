@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Inter, Fira_Code } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { ToastProvider, Toaster } from '@/components/ui/toast'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' })
@@ -15,7 +16,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`dark ${inter.variable} ${firaCode.variable}`}>
       <body className="font-sans">
-        {children}
+        <ToastProvider>
+          {children}
+          <Toaster />
+        </ToastProvider>
         <Analytics />
       </body>
     </html>
