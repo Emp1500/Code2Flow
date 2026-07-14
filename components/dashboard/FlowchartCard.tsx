@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import type { Flowchart } from '@/types'
 import { Badge } from '@/components/ui/badge'
 import { MoreHorizontal } from 'lucide-react'
+import { deleteFlowchart, ApiError } from '@/lib/api-client'
+import { useToastManager } from '@/components/ui/toast'
 
 function timeAgo(dateStr: string): string {
   const now = new Date()
@@ -31,6 +33,7 @@ const langBadge: Record<string, string> = {
 
 export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
   const router = useRouter()
+  const toast = useToastManager()
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -51,8 +54,16 @@ export function FlowchartCard({ flowchart }: { flowchart: Flowchart }) {
     setMenuOpen(false)
     if (!confirm(`Delete "${flowchart.title}"?`)) return
     setDeleting(true)
-    await fetch(`/api/flowcharts/${flowchart.id}`, { method: 'DELETE' })
-    router.refresh()
+    try {
+      await deleteFlowchart(flowchart.id)
+      router.refresh()
+    } catch (err) {
+      setDeleting(false)
+      toast.add({
+        title: 'Delete failed',
+        description: err instanceof ApiError ? err.message : 'Please try again.',
+      })
+    }
   }
 
   const accentClass = langAccent[flowchart.language] ?? ''
