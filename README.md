@@ -21,7 +21,12 @@ Paste JavaScript, TypeScript, or Python — get a live, readable flowchart back.
 
 > **Try it live:** [code2flow-one.vercel.app](https://code2flow-one.vercel.app/) — log in with `demo123@gmail.com` / `123456` (a shared demo account, no signup needed). Real account signup is currently unreliable due to a Supabase email-rate-limit issue we're tracking; the demo login sidesteps it entirely.
 
-> **Screenshots / demo GIF:** coming soon. If you'd like to contribute one, see [CONTRIBUTING.md](CONTRIBUTING.md).
+<p align="center">
+  <img src="docs/images/homepage.png" alt="Code2Flow homepage" width="900">
+</p>
+<p align="center">
+  <img src="docs/images/editor-flowchart.png" alt="Code2Flow editor with a live flowchart rendered from JavaScript" width="900">
+</p>
 
 ## Overview
 
