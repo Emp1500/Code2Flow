@@ -13,6 +13,7 @@ export async function GET() {
     .select('id, title, language, is_public, share_id, created_at, updated_at')
     .eq('user_id', user.id)
     .order('updated_at', { ascending: false })
+    .limit(100)
 
   if (error) {
     console.error('GET /api/flowcharts failed:', error)

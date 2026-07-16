@@ -14,6 +14,7 @@ export default async function DashboardPage() {
     .select('*')
     .eq('user_id', user!.id)
     .order('updated_at', { ascending: false })
+    .limit(100)
 
   return (
     <div className="min-h-screen bg-background">

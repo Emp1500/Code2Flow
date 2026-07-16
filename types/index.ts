@@ -13,7 +13,6 @@ export interface Flowchart {
   language: Language
   is_public: boolean
   share_id: string | null
-  thumbnail_url: string | null
   created_at: string
   updated_at: string
 }

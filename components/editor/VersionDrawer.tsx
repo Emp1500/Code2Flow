@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import type { FlowchartVersion } from '@/types'
+import { fetchVersions, fetchVersion, ApiError } from '@/lib/api-client'
+import { useToastManager } from '@/components/ui/toast'
 
 interface Props {
   flowchartId: string
@@ -11,7 +13,8 @@ interface Props {
 }
 
 export function VersionDrawer({ flowchartId, onClose, onRestore }: Props) {
-  const [versions, setVersions] = useState<Omit<FlowchartVersion, 'code'>[]>([])
+  const toast = useToastManager()
+  const [versions, setVersions] = useState<Pick<FlowchartVersion, 'id' | 'version_number' | 'created_at'>[]>([])
   const [loading,  setLoading]  = useState(true)
   const [selected, setSelected] = useState<number | null>(null)
   const [preview,  setPreview]  = useState<string | null>(null)
@@ -19,17 +22,31 @@ export function VersionDrawer({ flowchartId, onClose, onRestore }: Props) {
 
   useEffect(() => {
     if (!flowchartId) { setLoading(false); return }
-    fetch(`/api/flowcharts/${flowchartId}/versions`)
-      .then(r => r.json())
+    fetchVersions(flowchartId)
       .then(data => { setVersions(data); setLoading(false) })
+      .catch(err => {
+        setLoading(false)
+        toast.add({
+          title: 'Failed to load version history',
+          description: err instanceof ApiError ? err.message : 'Please try again.',
+        })
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flowchartId])
 
   async function loadPreview(versionNumber: number) {
     setFetching(true); setSelected(versionNumber)
-    const r = await fetch(`/api/flowcharts/${flowchartId}/versions?v=${versionNumber}`)
-    const d = await r.json()
-    setPreview(d.code)
-    setFetching(false)
+    try {
+      const d = await fetchVersion(flowchartId, versionNumber)
+      setPreview(d.code)
+    } catch (err) {
+      toast.add({
+        title: 'Failed to load version',
+        description: err instanceof ApiError ? err.message : 'Please try again.',
+      })
+    } finally {
+      setFetching(false)
+    }
   }
 
   function handleRestore() {

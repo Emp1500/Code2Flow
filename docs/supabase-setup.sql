@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS flowcharts (
                   CHECK (language IN ('javascript', 'typescript', 'python')),
   is_public     BOOLEAN NOT NULL DEFAULT false,
   share_id      TEXT UNIQUE,
-  thumbnail_url TEXT,
   created_at    TIMESTAMPTZ DEFAULT now(),
   updated_at    TIMESTAMPTZ DEFAULT now()
 );

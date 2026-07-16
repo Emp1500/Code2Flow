@@ -14,7 +14,8 @@ export async function POST(_req: Request, { params }: Params) {
   const { success, retryAfter } = await checkRateLimit(shareLimit, user.id)
   if (!success) return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(retryAfter) } })
 
-  const { data: fc, error: fetchError } = await supabase.from('flowcharts').select('is_public, share_id').eq('id', id).single()
+  const { data: fc, error: fetchError } = await supabase
+    .from('flowcharts').select('is_public, share_id').eq('id', id).eq('user_id', user.id).single()
   if (fetchError || !fc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const toggled    = !fc.is_public
@@ -22,7 +23,7 @@ export async function POST(_req: Request, { params }: Params) {
   const updateData = toggled ? { is_public: true, share_id } : { is_public: false }
 
   const { data: updated, error: updateError } = await supabase
-    .from('flowcharts').update(updateData).eq('id', id).select('is_public, share_id').single()
+    .from('flowcharts').update(updateData).eq('id', id).eq('user_id', user.id).select('is_public, share_id').single()
 
   if (updateError) return NextResponse.json({ error: 'Failed to update share settings' }, { status: 500 })
 
