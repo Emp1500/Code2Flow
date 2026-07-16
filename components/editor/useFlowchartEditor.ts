@@ -38,6 +38,7 @@ export function useFlowchartEditor(initialId?: string) {
   const [renameTrigger, setRenameTrigger] = useState(0)
 
   useEffect(() => {
+    setId(initialId)
     if (!initialId) return
     api.fetchFlowchart(initialId)
       .then(fc => {
