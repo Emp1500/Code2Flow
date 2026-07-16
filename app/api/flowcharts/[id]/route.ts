@@ -48,7 +48,7 @@ export async function PUT(request: Request, { params }: Params) {
   const { code, ...meta } = parsed.data
 
   if (Object.keys(meta).length) {
-    const { error: metaError } = await supabase.from('flowcharts').update(meta).eq('id', id)
+    const { error: metaError } = await supabase.from('flowcharts').update(meta).eq('id', id).eq('user_id', user.id)
     if (metaError) return NextResponse.json({ error: 'Failed to update flowchart' }, { status: 500 })
   }
 
@@ -84,7 +84,7 @@ export async function PUT(request: Request, { params }: Params) {
     }
   }
 
-  const { data: updated, error: reloadError } = await supabase.from('flowcharts').select('*').eq('id', id).single()
+  const { data: updated, error: reloadError } = await supabase.from('flowcharts').select('*').eq('id', id).eq('user_id', user.id).single()
   if (reloadError) return NextResponse.json({ error: 'Failed to reload flowchart' }, { status: 500 })
   return NextResponse.json(updated)
 }
