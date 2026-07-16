@@ -34,6 +34,10 @@ export async function PUT(request: Request, { params }: Params) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const { data: owned, error: ownerError } = await supabase
+    .from('flowcharts').select('id').eq('id', id).eq('user_id', user.id).single()
+  if (ownerError || !owned) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
   const { success, retryAfter } = await checkRateLimit(saveLimit, user.id)
   if (!success) return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429, headers: { 'Retry-After': String(retryAfter) } })
 
@@ -71,12 +75,12 @@ export async function PUT(request: Request, { params }: Params) {
       .eq('flowchart_id', id)
       .order('version_number', { ascending: true })
 
-    if (listError) return NextResponse.json({ error: 'Failed to prune old versions' }, { status: 500 })
-
-    if (all && all.length > 50) {
+    if (listError) {
+      console.error('Failed to list versions for pruning (save already succeeded):', listError)
+    } else if (all && all.length > 50) {
       const toDelete = all.slice(0, all.length - 50).map(v => v.id)
       const { error: deleteError } = await supabase.from('flowchart_versions').delete().in('id', toDelete)
-      if (deleteError) return NextResponse.json({ error: 'Failed to prune old versions' }, { status: 500 })
+      if (deleteError) console.error('Failed to prune old versions (save already succeeded):', deleteError)
     }
   }
 
@@ -96,8 +100,9 @@ export async function PATCH(request: Request, { params }: Params) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
 
   const { data, error } = await supabase
-    .from('flowcharts').update({ title: parsed.data.title }).eq('id', id).select().single()
+    .from('flowcharts').update({ title: parsed.data.title }).eq('id', id).eq('user_id', user.id).select().single()
   if (error) {
+    if (error.code === 'PGRST116') return NextResponse.json({ error: 'Not found' }, { status: 404 })
     console.error('PATCH /api/flowcharts/[id] failed:', error)
     return NextResponse.json({ error: 'Failed to rename flowchart' }, { status: 500 })
   }
@@ -110,10 +115,13 @@ export async function DELETE(_req: Request, { params }: Params) {
   const { data: { user }, error: authErr } = await supabase.auth.getUser()
   if (authErr || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await supabase.from('flowcharts').delete().eq('id', id)
+  const { data, error } = await supabase
+    .from('flowcharts').delete().eq('id', id).eq('user_id', user.id).select().single()
   if (error) {
+    if (error.code === 'PGRST116') return NextResponse.json({ error: 'Not found' }, { status: 404 })
     console.error('DELETE /api/flowcharts/[id] failed:', error)
     return NextResponse.json({ error: 'Failed to delete flowchart' }, { status: 500 })
   }
+  if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   return NextResponse.json({ success: true })
 }
