@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
 import { DottedSurface } from '@/components/ui/DottedSurface'
-import { AnimatedFeaturesGrid } from '@/components/home/AnimatedFeaturesGrid'
+import { FeaturesGrid } from '@/components/home/FeaturesGrid'
 import { GithubIcon } from '@/components/icons/GithubIcon'
 
 const GITHUB_URL = 'https://github.com/Emp1500/Code2Flow'
@@ -96,7 +96,7 @@ export default async function LandingPage() {
           </div>
         </div>
 
-        <AnimatedFeaturesGrid />
+        <FeaturesGrid />
       </main>
       <footer className="relative border-t border-border/60 py-8">
         <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
