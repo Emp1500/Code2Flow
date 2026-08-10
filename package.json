@@ -39,7 +39,7 @@
     "zod": "^4.4.3"
   },
   "overrides": {
-    "dompurify": "^3.4.12",
+    "dompurify": "^3.4.13",
     "next": {
       "postcss": "^8.5.17"
     }
